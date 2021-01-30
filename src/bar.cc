@@ -17,6 +17,8 @@
 #include <thread>
 #include <mutex>
 
+using namespace std::literals::chrono_literals;
+
 struct connection_t {
     xcb_connection_t *connection;
     connection_t() {
@@ -141,11 +143,27 @@ struct bar_t {
         cairo_set_font_size(surface.cr, font_size);
         cairo_set_source_rgb(surface.cr, 1.0, 1.0, 1.0);
         content.lock.lock();
-        cairo_move_to(surface.cr, 0.0, font_size);
+
+        cairo_font_extents_t font_extents;
+        cairo_font_extents(surface.cr, &font_extents);
+
+        double padding = 0;
+        double width = 1920;
+        double height = 2 * padding + font_extents.ascent + font_extents.descent;
+        (void)height;
+
+        cairo_move_to(surface.cr, padding, padding + font_extents.ascent);
         cairo_show_text(surface.cr, content.left.c_str());
 
-        cairo_move_to(surface.cr, 1920 / 2, font_size);
+        cairo_text_extents_t extents;
+        cairo_text_extents(surface.cr, content.middle.c_str(), &extents);
+        cairo_move_to(surface.cr, padding + width / 2 - extents.x_advance / 2, padding + font_extents.ascent);
         cairo_show_text(surface.cr, content.middle.c_str());
+
+        cairo_text_extents(surface.cr, content.right.c_str(), &extents);
+        cairo_move_to(surface.cr, width - padding - extents.x_advance, padding + font_extents.ascent);
+        cairo_show_text(surface.cr, content.right.c_str());
+
         content.lock.unlock();
 
         cairo_surface_flush(surface.surface);
@@ -216,8 +234,8 @@ void content_update(content_t& content) {
         content.lock.lock();
         content.left = "hello world";
         content.middle = "wifi  brightness  15%  volume  14%  battery 100% " + exec("date +%H:%M");
+        content.right = "right hand side";
         content.lock.unlock();
-        using namespace std::literals::chrono_literals;
         std::this_thread::sleep_for(100ms);
     }
 }
