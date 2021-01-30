@@ -16,22 +16,31 @@
 #include <algorithm>
 #include <thread>
 
+struct connection_t {
+    xcb_connection_t *connection;
+    connection_t() {
+        connection = xcb_connect(NULL, NULL);
+        cache_atoms(connection);
+    }
+    ~connection_t() {
+        xcb_disconnect(connection);
+    }
+};
+
 struct window_t {
     int width;
-    int height = 100;
-    xcb_connection_t *connection;
+    int height = 16;
     xcb_drawable_t window;
     xcb_visualtype_t *visual_type;
     xcb_screen_t *screen;
 
-    window_t() {
-        connection = xcb_connect(NULL, NULL);
-        xcb_screen_iterator_t iter = xcb_setup_roots_iterator(xcb_get_setup(connection));
+    window_t(connection_t& connection) {
+        xcb_screen_iterator_t iter = xcb_setup_roots_iterator(xcb_get_setup(connection.connection));
         screen = iter.data;
         width = screen->width_in_pixels;
-        window = xcb_generate_id(connection);
+        window = xcb_generate_id(connection.connection);
         xcb_create_window(
-            connection, XCB_COPY_FROM_PARENT,
+            connection.connection, XCB_COPY_FROM_PARENT,
             window, screen->root,
             0, 0,
             width, height,
@@ -52,18 +61,15 @@ struct window_t {
             }
         }
     }
-    ~window_t() {
-        xcb_disconnect(connection);
-    }
 };
 
 struct surface_t {
     cairo_surface_t *surface;
     cairo_t *cr;
 
-    surface_t(window_t& window) {
-        xcb_map_window(window.connection, window.window);
-        surface = cairo_xcb_surface_create(window.connection, window.window, window.visual_type, window.width, window.height);
+    surface_t(connection_t& connection, window_t& window) {
+        xcb_map_window(connection.connection, window.window);
+        surface = cairo_xcb_surface_create(connection.connection, window.window, window.visual_type, window.width, window.height);
         cr = cairo_create(surface);
     }
     ~surface_t() {
@@ -73,14 +79,17 @@ struct surface_t {
 };
 
 struct bar_t {
-    bar_t(window_t& window) {
+    connection_t& connection;
+    bar_t(connection_t& _connection, window_t& window):
+        connection(_connection)
+    {
         uint32_t events =
             XCB_EVENT_MASK_EXPOSURE |
             XCB_EVENT_MASK_BUTTON_PRESS |
             XCB_EVENT_MASK_BUTTON_RELEASE;
-        xcb_change_window_attributes(window.connection, window.window, XCB_CW_EVENT_MASK, &events);
+        xcb_change_window_attributes(connection.connection, window.window, XCB_CW_EVENT_MASK, &events);
 
-        const auto& c = window.connection;
+        const auto& c = connection.connection;
         const auto& w = window.window;
 
         std::string wmname = "ade";
@@ -107,7 +116,7 @@ struct bar_t {
         xcb_ewmh_set_wm_state(&ewmh, w, states.size(), states.data());
         xcb_ewmh_set_wm_desktop(&ewmh, w, 0xFFFFFFFF);
         xcb_ewmh_set_wm_pid(&ewmh, w, getpid());
-        xcb_flush(window.connection);
+        xcb_flush(connection.connection);
     }
 
     void redraw(window_t &window, surface_t &surface) {
@@ -124,7 +133,7 @@ struct bar_t {
         cairo_show_text(surface.cr, "wifi  brightness  15%  volume  14%  battery 100%  12:08");
 
         cairo_surface_flush(surface.surface);
-        xcb_flush(window.connection);
+        xcb_flush(connection.connection);
 
         if (false) {
             cairo_t *cr = NULL;
@@ -172,16 +181,16 @@ struct bar_t {
 };
 
 int main() {
-    window_t window;
+    connection_t connection;
 
-    cache_atoms(window.connection);
+    window_t window(connection);
 
-    bar_t bar(window);
+    bar_t bar(connection, window);
 
-    surface_t surface(window);
+    surface_t surface(connection, window);
 
     while (true) {
-        xcb_generic_event_t *event = xcb_poll_for_event(window.connection);
+        xcb_generic_event_t *event = xcb_poll_for_event(connection.connection);
         if (!event) {
             continue;
         }
