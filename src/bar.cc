@@ -15,6 +15,7 @@
 #include <iostream>
 #include <algorithm>
 #include <thread>
+#include <mutex>
 
 struct connection_t {
     xcb_connection_t *connection;
@@ -77,14 +78,23 @@ struct surface_t {
     }
 };
 
+struct content_t {
+    std::mutex lock;
+    std::string left = "empty";
+    std::string middle = "";
+    std::string right = "";
+};
+
 struct bar_t {
     connection_t& connection;
     window_t window;
     surface_t surface;
-    bar_t(connection_t& _connection):
+    content_t &content;
+    bar_t(connection_t& _connection, content_t& _content):
         connection(_connection),
         window(connection),
-        surface(connection, window)
+        surface(connection, window),
+        content(_content)
     {
         uint32_t events =
             XCB_EVENT_MASK_EXPOSURE |
@@ -130,11 +140,13 @@ struct bar_t {
         float font_size = 14.0;
         cairo_set_font_size(surface.cr, font_size);
         cairo_set_source_rgb(surface.cr, 1.0, 1.0, 1.0);
+        content.lock.lock();
         cairo_move_to(surface.cr, 0.0, font_size);
-        cairo_show_text(surface.cr, "Hello, world");
+        cairo_show_text(surface.cr, content.left.c_str());
 
         cairo_move_to(surface.cr, 1920 / 2, font_size);
-        cairo_show_text(surface.cr, "wifi  brightness  15%  volume  14%  battery 100%  12:08");
+        cairo_show_text(surface.cr, content.middle.c_str());
+        content.lock.unlock();
 
         cairo_surface_flush(surface.surface);
         xcb_flush(connection.connection);
@@ -184,20 +196,48 @@ struct bar_t {
     }
 };
 
+std::string exec(std::string cmd) {
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) {
+        throw std::runtime_error("popen() failed!");
+    }
+    std::string result;
+    std::array<char, 128> buffer;
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+        result += buffer.data();
+    }
+    pclose(pipe);
+    result.erase(std::remove(result.begin(), result.end(), '\n'), result.end());
+    return result;
+};
+
+void content_update(content_t& content) {
+    for (size_t i = 0; ; i++) {
+        content.lock.lock();
+        content.left = "hello world";
+        content.middle = "wifi  brightness  15%  volume  14%  battery 100% " + exec("date +%H:%M");
+        content.lock.unlock();
+        using namespace std::literals::chrono_literals;
+        std::this_thread::sleep_for(100ms);
+    }
+}
+
 int main() {
+    content_t content;
     connection_t connection;
-    bar_t bar(connection);
+    bar_t bar(connection, content);
+    std::thread content_update_thread(content_update, std::ref(content));
 
     bar.redraw();
 
     while (true) {
+        bar.redraw();
         xcb_generic_event_t *event = xcb_poll_for_event(connection.connection);
         if (!event) {
             continue;
         }
         switch (event->response_type & ~0x80) {
             case XCB_EXPOSE:
-                bar.redraw();
                 break;
             case XCB_EVENT_MASK_BUTTON_PRESS:
             case XCB_EVENT_MASK_BUTTON_RELEASE:
