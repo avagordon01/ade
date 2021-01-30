@@ -68,7 +68,6 @@ struct surface_t {
     cairo_t *cr;
 
     surface_t(connection_t& connection, window_t& window) {
-        xcb_map_window(connection.connection, window.window);
         surface = cairo_xcb_surface_create(connection.connection, window.window, window.visual_type, window.width, window.height);
         cr = cairo_create(surface);
     }
@@ -80,8 +79,12 @@ struct surface_t {
 
 struct bar_t {
     connection_t& connection;
-    bar_t(connection_t& _connection, window_t& window):
-        connection(_connection)
+    window_t window;
+    surface_t surface;
+    bar_t(connection_t& _connection):
+        connection(_connection),
+        window(connection),
+        surface(connection, window)
     {
         uint32_t events =
             XCB_EVENT_MASK_EXPOSURE |
@@ -117,9 +120,10 @@ struct bar_t {
         xcb_ewmh_set_wm_desktop(&ewmh, w, 0xFFFFFFFF);
         xcb_ewmh_set_wm_pid(&ewmh, w, getpid());
         xcb_flush(connection.connection);
+        xcb_map_window(connection.connection, window.window);
     }
 
-    void redraw(window_t &window, surface_t &surface) {
+    void redraw() {
         cairo_set_source_rgb(surface.cr, 0.0, 0.0, 0.0);
         cairo_paint(surface.cr);
         cairo_select_font_face(surface.cr, "Misc Tamsyn", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
@@ -182,12 +186,9 @@ struct bar_t {
 
 int main() {
     connection_t connection;
+    bar_t bar(connection);
 
-    window_t window(connection);
-
-    bar_t bar(connection, window);
-
-    surface_t surface(connection, window);
+    bar.redraw();
 
     while (true) {
         xcb_generic_event_t *event = xcb_poll_for_event(connection.connection);
@@ -196,7 +197,7 @@ int main() {
         }
         switch (event->response_type & ~0x80) {
             case XCB_EXPOSE:
-                bar.redraw(window, surface);
+                bar.redraw();
                 break;
             case XCB_EVENT_MASK_BUTTON_PRESS:
             case XCB_EVENT_MASK_BUTTON_RELEASE:
