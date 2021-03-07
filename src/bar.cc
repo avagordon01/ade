@@ -17,6 +17,8 @@
 #include <thread>
 #include <mutex>
 
+#include "area.hh"
+
 using namespace std::literals::chrono_literals;
 
 struct connection_t {
@@ -82,9 +84,8 @@ struct surface_t {
 
 struct content_t {
     std::mutex lock;
-    std::string left = "empty";
-    std::string middle = "";
-    std::string right = "";
+    std::vector<area_t> left;
+    std::vector<area_t> right;
 };
 
 struct bar_t {
@@ -139,7 +140,7 @@ struct bar_t {
         cairo_set_source_rgb(surface.cr, 0.0, 0.0, 0.0);
         cairo_paint(surface.cr);
         cairo_select_font_face(surface.cr, "Misc Tamsyn", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-        float font_size = 14.0;
+        float font_size = 12.0;
         cairo_set_font_size(surface.cr, font_size);
         cairo_set_source_rgb(surface.cr, 1.0, 1.0, 1.0);
         content.lock.lock();
@@ -147,22 +148,35 @@ struct bar_t {
         cairo_font_extents_t font_extents;
         cairo_font_extents(surface.cr, &font_extents);
 
-        double padding = 0;
-        double width = 1920;
-        double height = 2 * padding + font_extents.ascent + font_extents.descent;
-        (void)height;
+        aabb_t screen {
+            0, 0, window.screen->width_in_pixels, window.screen->height_in_pixels
+        };
+        int padding = 0;
+        int bar_height = 2 * padding + font_extents.ascent + font_extents.descent;
+        aabb_t bar = screen.chop_to(aabb_t::direction::top, bar_height);
+        int notif_width = 200;
+        aabb_t notifs =
+            screen
+            .chop_off(aabb_t::direction::top, bar_height)
+            .chop_to(aabb_t::direction::right, notif_width);
+        (void)notifs;
+        aabb_t padded_bar = bar.chop_off(aabb_t::direction::all, padding);
 
-        cairo_move_to(surface.cr, padding, padding + font_extents.ascent);
-        cairo_show_text(surface.cr, content.left.c_str());
+        cairo_text_extents_t text_extents;
 
-        cairo_text_extents_t extents;
-        cairo_text_extents(surface.cr, content.middle.c_str(), &extents);
-        cairo_move_to(surface.cr, padding + width / 2 - extents.x_advance / 2, padding + font_extents.ascent);
-        cairo_show_text(surface.cr, content.middle.c_str());
+        for (auto& section: content.left) {
+            cairo_text_extents(surface.cr, section.content.c_str(), &text_extents);
+            section.aabb = padded_bar.chop_to(aabb_t::direction::left, text_extents.x_advance);
+            cairo_move_to(surface.cr, section.aabb.x0, section.aabb.y0 + font_extents.ascent);
+            cairo_show_text(surface.cr, section.content.c_str());
+        }
 
-        cairo_text_extents(surface.cr, content.right.c_str(), &extents);
-        cairo_move_to(surface.cr, width - padding - extents.x_advance, padding + font_extents.ascent);
-        cairo_show_text(surface.cr, content.right.c_str());
+        for (auto& section: content.right) {
+            cairo_text_extents(surface.cr, section.content.c_str(), &text_extents);
+            section.aabb = padded_bar.chop_to(aabb_t::direction::right, text_extents.x_advance);
+            cairo_move_to(surface.cr, section.aabb.x0, section.aabb.y0 + font_extents.ascent);
+            cairo_show_text(surface.cr, section.content.c_str());
+        }
 
         content.lock.unlock();
 
@@ -232,9 +246,8 @@ std::string exec(std::string cmd) {
 void content_update(content_t& content) {
     for (size_t i = 0; ; i++) {
         content.lock.lock();
-        content.left = "hello world";
-        content.middle = "wifi  brightness  15%  volume  14%  battery 100% " + exec("date +%H:%M");
-        content.right = "right hand side";
+        content.left[0].content = "menu browser terminal shutdown";
+        content.right[0].content = "wifi kiera  volume  12%  battery 100%";
         content.lock.unlock();
         std::this_thread::sleep_for(100ms);
     }
@@ -242,6 +255,8 @@ void content_update(content_t& content) {
 
 int main() {
     content_t content;
+    content.left.emplace_back();
+    content.right.emplace_back();
     connection_t connection;
     bar_t bar(connection, content);
     std::thread content_update_thread(content_update, std::ref(content));
