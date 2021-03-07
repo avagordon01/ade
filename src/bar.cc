@@ -250,6 +250,7 @@ int main() {
 
     while (true) {
         bar.redraw();
+        std::this_thread::sleep_for(10ms);
         xcb_generic_event_t *event = xcb_poll_for_event(connection.connection);
         if (!event) {
             continue;
