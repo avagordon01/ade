@@ -33,8 +33,7 @@ struct connection_t {
 };
 
 struct window_t {
-    int width;
-    int height = 16;
+    aabb_t aabb;
     xcb_drawable_t window;
     xcb_visualtype_t *visual_type;
     xcb_screen_t *screen;
@@ -42,13 +41,13 @@ struct window_t {
     window_t(connection_t& connection) {
         xcb_screen_iterator_t iter = xcb_setup_roots_iterator(xcb_get_setup(connection.connection));
         screen = iter.data;
-        width = screen->width_in_pixels;
+        aabb = {0, 0, screen->width_in_pixels, 16};
         window = xcb_generate_id(connection.connection);
         xcb_create_window(
             connection.connection, XCB_COPY_FROM_PARENT,
             window, screen->root,
-            0, 0,
-            width, height,
+            aabb.xpos(), aabb.ypos(),
+            aabb.width(), aabb.height(),
             0,
             XCB_WINDOW_CLASS_INPUT_OUTPUT,
             screen->root_visual,
@@ -73,7 +72,7 @@ struct surface_t {
     cairo_t *cr;
 
     surface_t(connection_t& connection, window_t& window) {
-        surface = cairo_xcb_surface_create(connection.connection, window.window, window.visual_type, window.width, window.height);
+        surface = cairo_xcb_surface_create(connection.connection, window.window, window.visual_type, window.aabb.width(), window.aabb.height());
         cr = cairo_create(surface);
     }
     ~surface_t() {

@@ -11,6 +11,19 @@ struct aabb_t {
         assert(!inverted());
     }
 
+    int xpos() {
+        return x0;
+    }
+    int ypos() {
+        return y0;
+    }
+    int width() {
+        return x1 - x0;
+    }
+    int height() {
+        return y1 - y0;
+    }
+
     enum class direction {
         left, right, top, bottom, all,
     };
