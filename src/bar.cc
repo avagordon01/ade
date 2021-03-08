@@ -181,49 +181,6 @@ struct bar_t {
 
         cairo_surface_flush(surface.surface);
         xcb_flush(connection.connection);
-
-        if (false) {
-            cairo_t *cr = NULL;
-            cairo_set_source_rgb(cr, 1, 1, 1);
-            cairo_paint(cr);
-            float scale = 16;
-            cairo_save(cr);
-            cairo_translate(cr, scale, scale);
-            cairo_scale(cr, scale, scale);
-            {
-                uint32_t x, y;
-                cairo_move_to(cr, x, y);
-                cairo_line_to(cr, x, y);
-            }
-            cairo_restore(cr);
-            cairo_set_line_width(cr, 1);
-            cairo_set_source_rgb(cr, 0, 0, 0);
-            cairo_stroke(cr);
-
-            cairo_save(cr);
-            cairo_translate(cr, scale, scale);
-            cairo_scale(cr, scale, scale);
-            cairo_translate(cr, -0.5, -0.5);
-
-            double mouse_x, mouse_y;
-            /*
-            mouse_x -= scale;
-            mouse_y -= scale;
-            */
-            mouse_x /= scale;
-            mouse_y /= scale;
-            {
-                uint32_t min_x, min_y, max_x, max_y;
-                cairo_rectangle(cr, min_x, min_y, max_x - min_x, max_y - min_y);
-                cairo_rectangle(cr, min_x, min_y, 1, 1);
-                cairo_rectangle(cr, max_x, max_y, 1, 1);
-            }
-            cairo_restore(cr);
-            cairo_set_source_rgba(cr, 0.8, 0.9, 0.95, 0.5);
-            cairo_fill_preserve(cr);
-            cairo_set_source_rgb(cr, 0, 0, 0);
-            cairo_stroke(cr);
-        }
     }
 };
 
