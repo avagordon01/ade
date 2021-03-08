@@ -1,6 +1,7 @@
-struct area_t {
+struct module_t {
     std::string content;
     aabb_t aabb;
+    aabb_t::direction gravity;
     enum class event_t: uint8_t {
         left_click = 1,
         middle_click = 2,

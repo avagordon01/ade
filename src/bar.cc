@@ -84,8 +84,7 @@ struct surface_t {
 
 struct content_t {
     std::mutex lock;
-    std::vector<area_t> left;
-    std::vector<area_t> right;
+    std::vector<module_t> modules;
 };
 
 struct bar_t {
@@ -163,23 +162,12 @@ struct bar_t {
 
         cairo_text_extents_t text_extents;
 
-        std::string separator = "  ";
-        for (auto& section: content.left) {
-            std::string text = section.content + separator;
-            cairo_text_extents(surface.cr, text.c_str(), &text_extents);
-            section.aabb = padded_bar.chop_to(aabb_t::direction::left, text_extents.x_advance);
-            padded_bar = padded_bar.chop_off(aabb_t::direction::left, text_extents.x_advance);
+        for (auto& section: content.modules) {
+            cairo_text_extents(surface.cr, section.content.c_str(), &text_extents);
+            section.aabb = padded_bar.chop_to(section.gravity, text_extents.x_advance);
+            padded_bar = padded_bar.chop_off(section.gravity, text_extents.x_advance);
             cairo_move_to(surface.cr, section.aabb.x0, section.aabb.y0 + font_extents.ascent);
-            cairo_show_text(surface.cr, text.c_str());
-        }
-
-        for (auto& section: content.right) {
-            std::string text = separator + section.content;
-            cairo_text_extents(surface.cr, text.c_str(), &text_extents);
-            section.aabb = padded_bar.chop_to(aabb_t::direction::right, text_extents.x_advance);
-            padded_bar = padded_bar.chop_off(aabb_t::direction::right, text_extents.x_advance);
-            cairo_move_to(surface.cr, section.aabb.x0, section.aabb.y0 + font_extents.ascent);
-            cairo_show_text(surface.cr, text.c_str());
+            cairo_show_text(surface.cr, section.content.c_str());
         }
 
         cairo_surface_flush(surface.surface);
@@ -197,21 +185,15 @@ struct bar_t {
                         xcb_button_press_event_t &button_press = *reinterpret_cast<xcb_button_press_event_t*>(event);
                         aabb_t mouse_aabb {button_press.event_x, button_press.event_y, 0, 0};
 
-                        area_t* clicked_section;
-                        for (auto& section: content.left) {
+                        module_t* clicked_section;
+                        for (auto& section: content.modules) {
                             if (section.aabb.contains(mouse_aabb)) {
                                 clicked_section = &section;
                                 break;
                             }
                         }
-                        for (auto& section: content.right) {
-                            if (section.aabb.contains(mouse_aabb)) {
-                                clicked_section = &section;
-                                break;
-                            }
-                        }
-                        area_t::event_t event {button_press.detail};
-                        if (clicked_section->event) {
+                        module_t::event_t event {button_press.detail};
+                        if (clicked_section && clicked_section->event) {
                             clicked_section->event(event);
                         }
                     }
@@ -242,12 +224,12 @@ std::string exec(std::string cmd) {
 void content_update(content_t& content) {
     for (size_t i = 0; ; i++) {
         content.lock.lock();
-        content.left[0].content = "menu";
-        content.left[1].content = "browser terminal";
-        content.left[2].content = "shutdown";
-        content.right[0].content = "battery 100%";
-        content.right[1].content = "volume  12%";
-        content.right[2].content = "wifi kiera";
+        content.modules[0].content = "menu";
+        content.modules[2].content = "browser terminal";
+        content.modules[4].content = "shutdown";
+        content.modules[5].content = "battery 100%";
+        content.modules[7].content = "volume  12%";
+        content.modules[9].content = "wifi kiera";
         content.lock.unlock();
         std::this_thread::sleep_for(100ms);
     }
@@ -255,31 +237,44 @@ void content_update(content_t& content) {
 
 int main() {
     content_t content;
-    content.left.emplace_back();
-    content.left.emplace_back();
-    content.left.emplace_back();
-    content.right.emplace_back();
-    content.right.emplace_back();
-    content.right.emplace_back();
-    auto event = [](area_t::event_t event) -> bool {
+    std::function<bool(module_t::event_t)> event = [](module_t::event_t event) -> bool {
         switch (event) {
-            case area_t::event_t::left_click:
-                printf("left click\n");
+            case module_t::event_t::left_click:
+                printf("left_click\n");
+                break;
+            case module_t::event_t::middle_click:
+                printf("middle_click\n");
+                break;
+            case module_t::event_t::right_click:
+                printf("right_click\n");
+                break;
+            case module_t::event_t::wheel_up:
+                printf("wheel_up\n");
+                break;
+            case module_t::event_t::wheel_down:
+                printf("wheel_down\n");
                 break;
             default:
                 break;
         }
         return true;
     };
-    content.left[0].event = event;
-    content.left[1].event = event;
-    content.left[2].event = event;
+    using namespace std::string_literals;
+    content.modules.emplace_back(module_t{"", {}, aabb_t::direction::left, event});
+    content.modules.emplace_back(module_t{"   ", {}, aabb_t::direction::left, nullptr});
+    content.modules.emplace_back(module_t{"", {}, aabb_t::direction::left, event});
+    content.modules.emplace_back(module_t{"   ", {}, aabb_t::direction::left, nullptr});
+    content.modules.emplace_back(module_t{"", {}, aabb_t::direction::left, event});
+    content.modules.emplace_back(module_t{"", {}, aabb_t::direction::right, event});
+    content.modules.emplace_back(module_t{"   ", {}, aabb_t::direction::right, nullptr});
+    content.modules.emplace_back(module_t{"", {}, aabb_t::direction::right, event});
+    content.modules.emplace_back(module_t{"   ", {}, aabb_t::direction::right, nullptr});
+    content.modules.emplace_back(module_t{"", {}, aabb_t::direction::right, event});
     connection_t connection;
     bar_t bar(connection, content);
     std::thread content_update_thread(content_update, std::ref(content));
 
     bar.redraw();
-
     while (true) {
         content.lock.lock();
         bar.handle_events();
