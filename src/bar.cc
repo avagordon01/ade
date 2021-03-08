@@ -163,20 +163,23 @@ struct bar_t {
 
         cairo_text_extents_t text_extents;
 
+        std::string separator = "  ";
         for (auto& section: content.left) {
-            cairo_text_extents(surface.cr, section.content.c_str(), &text_extents);
+            std::string text = section.content + separator;
+            cairo_text_extents(surface.cr, text.c_str(), &text_extents);
             section.aabb = padded_bar.chop_to(aabb_t::direction::left, text_extents.x_advance);
             padded_bar = padded_bar.chop_off(aabb_t::direction::left, text_extents.x_advance);
             cairo_move_to(surface.cr, section.aabb.x0, section.aabb.y0 + font_extents.ascent);
-            cairo_show_text(surface.cr, section.content.c_str());
+            cairo_show_text(surface.cr, text.c_str());
         }
 
         for (auto& section: content.right) {
-            cairo_text_extents(surface.cr, section.content.c_str(), &text_extents);
+            std::string text = separator + section.content;
+            cairo_text_extents(surface.cr, text.c_str(), &text_extents);
             section.aabb = padded_bar.chop_to(aabb_t::direction::right, text_extents.x_advance);
             padded_bar = padded_bar.chop_off(aabb_t::direction::right, text_extents.x_advance);
             cairo_move_to(surface.cr, section.aabb.x0, section.aabb.y0 + font_extents.ascent);
-            cairo_show_text(surface.cr, section.content.c_str());
+            cairo_show_text(surface.cr, text.c_str());
         }
 
         content.lock.unlock();
