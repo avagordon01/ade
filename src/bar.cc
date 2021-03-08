@@ -136,12 +136,12 @@ struct bar_t {
     }
 
     void redraw() {
-        cairo_set_source_rgb(surface.cr, 0.0, 0.0, 0.0);
+        cairo_set_source_rgb(surface.cr, 0.125, 0.125, 0.125);
         cairo_paint(surface.cr);
         cairo_select_font_face(surface.cr, "Misc Tamsyn", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
         float font_size = 12.0;
         cairo_set_font_size(surface.cr, font_size);
-        cairo_set_source_rgb(surface.cr, 1.0, 1.0, 1.0);
+        cairo_set_source_rgb(surface.cr, 0.875, 0.875, 0.875);
         content.lock.lock();
 
         cairo_font_extents_t font_extents;
