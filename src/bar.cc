@@ -166,6 +166,7 @@ struct bar_t {
         for (auto& section: content.left) {
             cairo_text_extents(surface.cr, section.content.c_str(), &text_extents);
             section.aabb = padded_bar.chop_to(aabb_t::direction::left, text_extents.x_advance);
+            padded_bar = padded_bar.chop_off(aabb_t::direction::left, text_extents.x_advance);
             cairo_move_to(surface.cr, section.aabb.x0, section.aabb.y0 + font_extents.ascent);
             cairo_show_text(surface.cr, section.content.c_str());
         }
@@ -173,6 +174,7 @@ struct bar_t {
         for (auto& section: content.right) {
             cairo_text_extents(surface.cr, section.content.c_str(), &text_extents);
             section.aabb = padded_bar.chop_to(aabb_t::direction::right, text_extents.x_advance);
+            padded_bar = padded_bar.chop_off(aabb_t::direction::right, text_extents.x_advance);
             cairo_move_to(surface.cr, section.aabb.x0, section.aabb.y0 + font_extents.ascent);
             cairo_show_text(surface.cr, section.content.c_str());
         }
@@ -202,8 +204,12 @@ std::string exec(std::string cmd) {
 void content_update(content_t& content) {
     for (size_t i = 0; ; i++) {
         content.lock.lock();
-        content.left[0].content = "menu browser terminal shutdown";
-        content.right[0].content = "wifi kiera  volume  12%  battery 100%";
+        content.left[0].content = "menu";
+        content.left[1].content = "browser terminal";
+        content.left[2].content = "shutdown";
+        content.right[0].content = "battery 100%";
+        content.right[1].content = "volume  12%";
+        content.right[2].content = "wifi kiera";
         content.lock.unlock();
         std::this_thread::sleep_for(100ms);
     }
@@ -212,6 +218,10 @@ void content_update(content_t& content) {
 int main() {
     content_t content;
     content.left.emplace_back();
+    content.left.emplace_back();
+    content.left.emplace_back();
+    content.right.emplace_back();
+    content.right.emplace_back();
     content.right.emplace_back();
     connection_t connection;
     bar_t bar(connection, content);
