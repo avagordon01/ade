@@ -18,6 +18,7 @@
 #include <mutex>
 
 #include "area.hh"
+#include "module.hh"
 
 using namespace std::literals::chrono_literals;
 
@@ -142,7 +143,6 @@ struct bar_t {
         float font_size = 12.0;
         cairo_set_font_size(surface.cr, font_size);
         cairo_set_source_rgb(surface.cr, 0.875, 0.875, 0.875);
-        content.lock.lock();
 
         cairo_font_extents_t font_extents;
         cairo_font_extents(surface.cr, &font_extents);
@@ -182,10 +182,45 @@ struct bar_t {
             cairo_show_text(surface.cr, text.c_str());
         }
 
-        content.lock.unlock();
-
         cairo_surface_flush(surface.surface);
         xcb_flush(connection.connection);
+    }
+    void handle_events() {
+        xcb_generic_event_t *event;
+        while ((event = xcb_poll_for_event(connection.connection))) {
+            switch (event->response_type & ~0x80) {
+                case XCB_EXPOSE:
+                    break;
+                case XCB_EVENT_MASK_BUTTON_PRESS:
+                case XCB_EVENT_MASK_BUTTON_RELEASE:
+                    {
+                        xcb_button_press_event_t &button_press = *reinterpret_cast<xcb_button_press_event_t*>(event);
+                        aabb_t mouse_aabb {button_press.event_x, button_press.event_y, 0, 0};
+
+                        area_t* clicked_section;
+                        for (auto& section: content.left) {
+                            if (section.aabb.contains(mouse_aabb)) {
+                                clicked_section = &section;
+                                break;
+                            }
+                        }
+                        for (auto& section: content.right) {
+                            if (section.aabb.contains(mouse_aabb)) {
+                                clicked_section = &section;
+                                break;
+                            }
+                        }
+                        area_t::event_t event {button_press.detail};
+                        if (clicked_section->event) {
+                            clicked_section->event(event);
+                        }
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+        free(event);
     }
 };
 
@@ -226,6 +261,19 @@ int main() {
     content.right.emplace_back();
     content.right.emplace_back();
     content.right.emplace_back();
+    auto event = [](area_t::event_t event) -> bool {
+        switch (event) {
+            case area_t::event_t::left_click:
+                printf("left click\n");
+                break;
+            default:
+                break;
+        }
+        return true;
+    };
+    content.left[0].event = event;
+    content.left[1].event = event;
+    content.left[2].event = event;
     connection_t connection;
     bar_t bar(connection, content);
     std::thread content_update_thread(content_update, std::ref(content));
@@ -233,45 +281,10 @@ int main() {
     bar.redraw();
 
     while (true) {
+        content.lock.lock();
+        bar.handle_events();
         bar.redraw();
         std::this_thread::sleep_for(10ms);
-        xcb_generic_event_t *event = xcb_poll_for_event(connection.connection);
-        if (!event) {
-            continue;
-        }
-        switch (event->response_type & ~0x80) {
-            case XCB_EXPOSE:
-                break;
-            case XCB_EVENT_MASK_BUTTON_PRESS:
-            case XCB_EVENT_MASK_BUTTON_RELEASE:
-                {
-                    xcb_button_press_event_t &button_press = *reinterpret_cast<xcb_button_press_event_t*>(event);
-                    printf("button press %u %u!\n",
-                        button_press.event_x,
-                        button_press.event_y
-                    );
-                    switch (button_press.detail) {
-                    case 1:
-                        printf("left click\n");
-                        break;
-                    case 2:
-                        printf("middle click\n");
-                        break;
-                    case 3:
-                        printf("right click\n");
-                        break;
-                    case 4:
-                        printf("wheel up\n");
-                        break;
-                    case 5:
-                        printf("wheel down\n");
-                        break;
-                    }
-                }
-                break;
-            default:
-                break;
-        }
-        free(event);
+        content.lock.unlock();
     }
 }

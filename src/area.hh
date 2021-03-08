@@ -1,5 +1,3 @@
-
-
 struct aabb_t {
     int x0, y0, x1, y1;
 
@@ -22,6 +20,14 @@ struct aabb_t {
     }
     int height() {
         return y1 - y0;
+    }
+
+    friend std::ostream& operator<<(std::ostream& out, aabb_t x) {
+        out << x.x0 << ", ";
+        out << x.y0 << ", ";
+        out << x.x1 << ", ";
+        out << x.y1;
+        return out;
     }
 
     enum class direction {
@@ -80,9 +86,4 @@ struct aabb_t {
         assert(!x.inverted());
         return x;
     }
-};
-
-struct area_t {
-    std::string content;
-    aabb_t aabb;
 };
