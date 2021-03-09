@@ -185,7 +185,7 @@ struct bar_t {
                         xcb_button_press_event_t &button_press = *reinterpret_cast<xcb_button_press_event_t*>(event);
                         aabb_t mouse_aabb {button_press.event_x, button_press.event_y, 0, 0};
 
-                        module_t* clicked_section;
+                        module_t* clicked_section = nullptr;
                         for (auto& section: content.modules) {
                             if (section.aabb.contains(mouse_aabb)) {
                                 clicked_section = &section;
