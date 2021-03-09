@@ -109,7 +109,7 @@ struct bar_t {
 
         std::string wmname = "ade";
         xcb_icccm_set_wm_name(c, w, XCB_ATOM_STRING, 8, wmname.length(), wmname.c_str());
-        std::string wmclass =wmname;
+        std::string wmclass = wmname;
         xcb_icccm_set_wm_class(c, w, wmclass.length(), wmclass.c_str());
         std::vector<xcb_atom_t> flags = {WM_DELETE_WINDOW, WM_TAKE_FOCUS};
         xcb_icccm_set_wm_protocols(c, w, WM_PROTOCOLS, flags.size(), flags.data());
@@ -259,17 +259,19 @@ int main() {
         }
         return true;
     };
-    using namespace std::string_literals;
-    content.modules.emplace_back(module_t{"", {}, aabb_t::direction::left, event});
-    content.modules.emplace_back(module_t{"   ", {}, aabb_t::direction::left, nullptr});
-    content.modules.emplace_back(module_t{"", {}, aabb_t::direction::left, event});
-    content.modules.emplace_back(module_t{"   ", {}, aabb_t::direction::left, nullptr});
-    content.modules.emplace_back(module_t{"", {}, aabb_t::direction::left, event});
-    content.modules.emplace_back(module_t{"", {}, aabb_t::direction::right, event});
-    content.modules.emplace_back(module_t{"   ", {}, aabb_t::direction::right, nullptr});
-    content.modules.emplace_back(module_t{"", {}, aabb_t::direction::right, event});
-    content.modules.emplace_back(module_t{"   ", {}, aabb_t::direction::right, nullptr});
-    content.modules.emplace_back(module_t{"", {}, aabb_t::direction::right, event});
+    std::string sep = "   ";
+    aabb_t::direction dir = aabb_t::direction::left;
+    content.modules.emplace_back(module_t{{}, {}, dir, event});
+    content.modules.emplace_back(module_t{sep, {}, dir, nullptr});
+    content.modules.emplace_back(module_t{{}, {}, dir, event});
+    content.modules.emplace_back(module_t{sep, {}, dir, nullptr});
+    content.modules.emplace_back(module_t{{}, {}, dir, event});
+    dir = aabb_t::direction::right;
+    content.modules.emplace_back(module_t{{}, {}, dir, event});
+    content.modules.emplace_back(module_t{sep, {}, dir, nullptr});
+    content.modules.emplace_back(module_t{{}, {}, dir, event});
+    content.modules.emplace_back(module_t{sep, {}, dir, nullptr});
+    content.modules.emplace_back(module_t{{}, {}, dir, event});
     connection_t connection;
     bar_t bar(connection, content);
     std::thread content_update_thread(content_update, std::ref(content));
