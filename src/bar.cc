@@ -100,8 +100,7 @@ struct bar_t {
     {
         uint32_t events =
             XCB_EVENT_MASK_EXPOSURE |
-            XCB_EVENT_MASK_BUTTON_PRESS |
-            XCB_EVENT_MASK_BUTTON_RELEASE;
+            XCB_EVENT_MASK_BUTTON_PRESS;
         xcb_change_window_attributes(connection.connection, window.window, XCB_CW_EVENT_MASK, &events);
 
         const auto& c = connection.connection;
@@ -176,7 +175,6 @@ struct bar_t {
                 case XCB_EXPOSE:
                     break;
                 case XCB_EVENT_MASK_BUTTON_PRESS:
-                case XCB_EVENT_MASK_BUTTON_RELEASE:
                     {
                         xcb_button_press_event_t &button_press = *reinterpret_cast<xcb_button_press_event_t*>(event);
                         aabb_t mouse_aabb {button_press.event_x, button_press.event_y, 0, 0};
