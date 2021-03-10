@@ -151,21 +151,17 @@ struct bar_t {
         };
         int padding = 0;
         int bar_height = 2 * padding + font_extents.ascent + font_extents.descent;
-        aabb_t bar = screen.chop_to(aabb_t::direction::top, bar_height);
+        aabb_t bar = screen.chop(aabb_t::direction::top, bar_height);
         int notif_width = 200;
-        aabb_t notifs =
-            screen
-            .chop_off(aabb_t::direction::top, bar_height)
-            .chop_to(aabb_t::direction::right, notif_width);
+        aabb_t notifs = screen.chop(aabb_t::direction::right, notif_width);
         (void)notifs;
-        aabb_t padded_bar = bar.chop_off(aabb_t::direction::all, padding);
+        bar.chop(aabb_t::direction::all, padding);
 
         cairo_text_extents_t text_extents;
 
         for (auto& section: content.modules) {
             cairo_text_extents(surface.cr, section.content.c_str(), &text_extents);
-            section.aabb = padded_bar.chop_to(section.gravity, text_extents.x_advance);
-            padded_bar = padded_bar.chop_off(section.gravity, text_extents.x_advance);
+            section.aabb = bar.chop(section.gravity, text_extents.x_advance);
             cairo_move_to(surface.cr, section.aabb.x0, section.aabb.y0 + font_extents.ascent);
             cairo_show_text(surface.cr, section.content.c_str());
         }

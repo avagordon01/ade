@@ -42,38 +42,25 @@ struct aabb_t {
     bool overlaps(aabb_t x) {
         return !(x.x1 < x0 || x.x0 > x1 || x.y1 < y0 || x.y0 > y1);
     }
-    aabb_t chop_off(direction d, size_t amount) {
+    aabb_t chop(direction d, size_t amount) {
         aabb_t x = *this;
         switch (d) {
             case direction::left:
-                x.x0 += amount; break;
-            case direction::right:
-                x.x1 -= amount; break;
-            case direction::top:
-                x.y0 += amount; break;
-            case direction::bottom:
-                x.y1 -= amount; break;
-            case direction::all:
-                x.x0 += amount;
-                x.x1 -= amount;
-                x.y0 += amount;
-                x.y1 -= amount;
+                x.x1 = x.x0 + amount;
+                x0 += amount;
                 break;
-        }
-        assert(!x.inverted());
-        return x;
-    }
-    aabb_t chop_to(direction d, size_t amount) {
-        aabb_t x = *this;
-        switch (d) {
-            case direction::left:
-                x.x1 = x.x0 + amount; break;
             case direction::right:
-                x.x0 = x.x1 - amount; break;
+                x.x0 = x.x1 - amount;
+                x1 -= amount;
+                break;
             case direction::top:
-                x.y1 = x.y0 + amount; break;
+                x.y1 = x.y0 + amount;
+                y0 += amount;
+                break;
             case direction::bottom:
-                x.y0 = x.y1 - amount; break;
+                x.y0 = x.y1 - amount;
+                y1 += amount;
+                break;
             case direction::all:
                 int x_mid = (x.x0 + x.x1) / 2;
                 int y_mid = (x.y0 + x.y1) / 2;
@@ -84,6 +71,7 @@ struct aabb_t {
                 break;
         }
         assert(!x.inverted());
+        assert(!inverted());
         return x;
     }
 };
