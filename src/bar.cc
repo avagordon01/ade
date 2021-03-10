@@ -226,7 +226,6 @@ void content_update(content_t& content) {
         content.modules[0].content = "menu";
         content.modules[2].content = "browser terminal";
         content.modules[4].content = "shutdown";
-        content.modules[7].content = "battery 100%";
         content.modules[9].content = "volume  12%";
         content.modules[11].content = "wifi kiera";
         content.lock.unlock();
@@ -269,7 +268,7 @@ int main() {
     dir = aabb_t::direction::right;
     content.modules[5] = {"date +%H:%M:%S", {}, {}, dir, nullptr};
     content.modules[6] = {{}, sep, {}, dir, nullptr};
-    content.modules[7] = {{}, {}, {}, dir, event};
+    content.modules[7] = {{"./module-scripts/battery.sh"}, {}, {}, dir, event};
     content.modules[8] = {{}, sep, {}, dir, nullptr};
     content.modules[9] = {{}, {}, {}, dir, event};
     content.modules[10] = {{}, sep, {}, dir, nullptr};
