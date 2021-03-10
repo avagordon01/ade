@@ -1,3 +1,5 @@
+set -euo pipefail
+
 BATC=/sys/class/power_supply/BAT0/capacity
 BATS=/sys/class/power_supply/BAT0/status
 
