@@ -216,16 +216,21 @@ std::string exec(std::string cmd) {
 };
 
 void content_update(content_t& content) {
-    for (size_t i = 0; ; i++) {
+    while (true) {
         content.lock.lock();
+        for (auto& module: content.modules) {
+            if (!module.exec.empty()) {
+                module.content = exec(module.exec);
+            }
+        }
         content.modules[0].content = "menu";
         content.modules[2].content = "browser terminal";
         content.modules[4].content = "shutdown";
-        content.modules[5].content = "battery 100%";
-        content.modules[7].content = "volume  12%";
-        content.modules[9].content = "wifi kiera";
+        content.modules[7].content = "battery 100%";
+        content.modules[9].content = "volume  12%";
+        content.modules[11].content = "wifi kiera";
         content.lock.unlock();
-        std::this_thread::sleep_for(100ms);
+        std::this_thread::sleep_for(250ms);
     }
 }
 
@@ -255,17 +260,20 @@ int main() {
     };
     std::string sep = "   ";
     aabb_t::direction dir = aabb_t::direction::left;
-    content.modules.emplace_back(module_t{{}, {}, dir, event});
-    content.modules.emplace_back(module_t{sep, {}, dir, nullptr});
-    content.modules.emplace_back(module_t{{}, {}, dir, event});
-    content.modules.emplace_back(module_t{sep, {}, dir, nullptr});
-    content.modules.emplace_back(module_t{{}, {}, dir, event});
+    content.modules.resize(12);
+    content.modules[0] = {{}, "menu", {}, dir, event};
+    content.modules[1] = {{}, sep, {}, dir, nullptr};
+    content.modules[2] = {{}, "browser terminal", {}, dir, event};
+    content.modules[3] = {{}, sep, {}, dir, nullptr};
+    content.modules[4] = {{}, "shutdown", {}, dir, event};
     dir = aabb_t::direction::right;
-    content.modules.emplace_back(module_t{{}, {}, dir, event});
-    content.modules.emplace_back(module_t{sep, {}, dir, nullptr});
-    content.modules.emplace_back(module_t{{}, {}, dir, event});
-    content.modules.emplace_back(module_t{sep, {}, dir, nullptr});
-    content.modules.emplace_back(module_t{{}, {}, dir, event});
+    content.modules[5] = {"date +%H:%M:%S", {}, {}, dir, nullptr};
+    content.modules[6] = {{}, sep, {}, dir, nullptr};
+    content.modules[7] = {{}, {}, {}, dir, event};
+    content.modules[8] = {{}, sep, {}, dir, nullptr};
+    content.modules[9] = {{}, {}, {}, dir, event};
+    content.modules[10] = {{}, sep, {}, dir, nullptr};
+    content.modules[11] = {{}, {}, {}, dir, event};
     connection_t connection;
     bar_t bar(connection, content);
     std::thread content_update_thread(content_update, std::ref(content));
@@ -275,7 +283,7 @@ int main() {
         content.lock.lock();
         bar.handle_events();
         bar.redraw();
-        std::this_thread::sleep_for(10ms);
         content.lock.unlock();
+        std::this_thread::sleep_for(10ms);
     }
 }

@@ -1,4 +1,5 @@
 struct module_t {
+    std::string exec;
     std::string content;
     aabb_t aabb;
     aabb_t::direction gravity;
