@@ -10,5 +10,9 @@ struct module_t {
         wheel_up = 4,
         wheel_down = 5,
     };
-    std::function<bool(event_t)> event;
+    std::string left_click;
+    std::string middle_click;
+    std::string right_click;
+    std::string wheel_up;
+    std::string wheel_down;
 };

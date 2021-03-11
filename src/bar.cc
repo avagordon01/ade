@@ -89,6 +89,21 @@ struct content_t {
     std::vector<module_t> modules;
 };
 
+std::string exec(std::string cmd) {
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) {
+        throw std::runtime_error("popen() failed!");
+    }
+    std::string result;
+    std::array<char, 128> buffer;
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+        result += buffer.data();
+    }
+    pclose(pipe);
+    result.erase(std::remove(result.begin(), result.end(), '\n'), result.end());
+    return result;
+};
+
 struct bar_t {
     connection_t& connection;
     window_t window;
@@ -181,16 +196,40 @@ struct bar_t {
                         xcb_button_press_event_t &button_press = *reinterpret_cast<xcb_button_press_event_t*>(event);
                         aabb_t mouse_aabb {button_press.event_x, button_press.event_y, 0, 0};
 
-                        module_t* clicked_section = nullptr;
                         for (auto& section: content.modules) {
                             if (section.aabb.contains(mouse_aabb)) {
-                                clicked_section = &section;
+                                module_t::event_t event {button_press.detail};
+                                switch (event) {
+                                    case module_t::event_t::left_click:
+                                        if (!section.left_click.empty()) {
+                                            exec(section.left_click);
+                                        }
+                                        break;
+                                    case module_t::event_t::middle_click:
+                                        if (!section.middle_click.empty()) {
+                                            exec(section.middle_click);
+                                        }
+                                        break;
+                                    case module_t::event_t::right_click:
+                                        if (!section.right_click.empty()) {
+                                            exec(section.right_click);
+                                        }
+                                        break;
+                                    case module_t::event_t::wheel_up:
+                                        if (!section.wheel_up.empty()) {
+                                            exec(section.wheel_up);
+                                        }
+                                        break;
+                                    case module_t::event_t::wheel_down:
+                                        if (!section.wheel_down.empty()) {
+                                            exec(section.wheel_down);
+                                        }
+                                        break;
+                                    default:
+                                        break;
+                                }
                                 break;
                             }
-                        }
-                        module_t::event_t event {button_press.detail};
-                        if (clicked_section && clicked_section->event) {
-                            clicked_section->event(event);
                         }
                     }
                     break;
@@ -200,21 +239,6 @@ struct bar_t {
         }
         free(event);
     }
-};
-
-std::string exec(std::string cmd) {
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) {
-        throw std::runtime_error("popen() failed!");
-    }
-    std::string result;
-    std::array<char, 128> buffer;
-    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
-        result += buffer.data();
-    }
-    pclose(pipe);
-    result.erase(std::remove(result.begin(), result.end(), '\n'), result.end());
-    return result;
 };
 
 void content_update(content_t& content) {
@@ -232,28 +256,6 @@ void content_update(content_t& content) {
 
 int main() {
     content_t content;
-    std::function<bool(module_t::event_t)> event = [](module_t::event_t event) -> bool {
-        switch (event) {
-            case module_t::event_t::left_click:
-                printf("left_click\n");
-                break;
-            case module_t::event_t::middle_click:
-                printf("middle_click\n");
-                break;
-            case module_t::event_t::right_click:
-                printf("right_click\n");
-                break;
-            case module_t::event_t::wheel_up:
-                printf("wheel_up\n");
-                break;
-            case module_t::event_t::wheel_down:
-                printf("wheel_down\n");
-                break;
-            default:
-                break;
-        }
-        return true;
-    };
     const auto data = toml::parse("config.toml");
     const toml::array& modules_config = toml::find(data, "modules").as_array();
     const auto separator = toml::find_or<std::string>(data, "separator", "");
@@ -261,6 +263,11 @@ int main() {
         const auto text = toml::find_or<std::string>(module_config, "text", "");
         const auto gravity = toml::find_or<std::string>(module_config, "gravity", "left");
         const auto exec = toml::find_or<std::string>(module_config, "exec", "");
+        const auto left_click = toml::find_or<std::string>(module_config, "left_click", "");
+        const auto middle_click = toml::find_or<std::string>(module_config, "middle_click", "");
+        const auto right_click = toml::find_or<std::string>(module_config, "right_click", "");
+        const auto wheel_up = toml::find_or<std::string>(module_config, "wheel_up", "");
+        const auto wheel_down = toml::find_or<std::string>(module_config, "wheel_down", "");
         aabb_t::direction dir;
         if (gravity == "left") {
             dir = aabb_t::direction::left;
@@ -270,10 +277,10 @@ int main() {
             abort();
         }
         content.modules.emplace_back(module_t{
-            exec, text, {}, dir, nullptr
+            exec, text, {}, dir, left_click, middle_click, right_click, wheel_up, wheel_down,
         });
         content.modules.emplace_back(module_t{
-            {}, separator, {}, dir, nullptr
+            {}, separator, {}, dir, "", "", "", "", ""
         });
     }
     connection_t connection;
