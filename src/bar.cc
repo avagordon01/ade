@@ -226,7 +226,6 @@ void content_update(content_t& content) {
         content.modules[0].content = "menu";
         content.modules[2].content = "browser terminal";
         content.modules[4].content = "shutdown";
-        content.modules[11].content = "wifi kiera";
         content.lock.unlock();
         std::this_thread::sleep_for(250ms);
     }
@@ -258,7 +257,7 @@ int main() {
     };
     std::string sep = "   ";
     aabb_t::direction dir = aabb_t::direction::left;
-    content.modules.resize(12);
+    content.modules.resize(14);
     content.modules[0] = {{}, "menu", {}, dir, event};
     content.modules[1] = {{}, sep, {}, dir, nullptr};
     content.modules[2] = {{}, "browser terminal", {}, dir, event};
@@ -271,7 +270,9 @@ int main() {
     content.modules[8] = {{}, sep, {}, dir, nullptr};
     content.modules[9] = {"./module-scripts/volume.sh", {}, {}, dir, event};
     content.modules[10] = {{}, sep, {}, dir, nullptr};
-    content.modules[11] = {{}, {}, {}, dir, event};
+    content.modules[11] = {"./module-scripts/brightness.sh", {}, {}, dir, event};
+    content.modules[12] = {{}, sep, {}, dir, nullptr};
+    content.modules[13] = {{}, "wifi kiera", {}, dir, event};
     connection_t connection;
     bar_t bar(connection, content);
     std::thread content_update_thread(content_update, std::ref(content));
