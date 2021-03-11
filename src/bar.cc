@@ -272,7 +272,7 @@ int main() {
     content.modules[10] = {{}, sep, {}, dir, nullptr};
     content.modules[11] = {"./module-scripts/brightness.sh", {}, {}, dir, event};
     content.modules[12] = {{}, sep, {}, dir, nullptr};
-    content.modules[13] = {{}, "wifi kiera", {}, dir, event};
+    content.modules[13] = {"./module-scripts/network.sh", {}, {}, dir, event};
     connection_t connection;
     bar_t bar(connection, content);
     std::thread content_update_thread(content_update, std::ref(content));
