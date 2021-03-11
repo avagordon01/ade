@@ -256,6 +256,7 @@ int main() {
     };
     const auto data = toml::parse("config.toml");
     const toml::array& modules_config = toml::find(data, "modules").as_array();
+    const auto separator = toml::find_or<std::string>(data, "separator", "");
     for (const auto& module_config: modules_config) {
         const auto text = toml::find_or<std::string>(module_config, "text", "");
         const auto gravity = toml::find_or<std::string>(module_config, "gravity", "left");
@@ -270,6 +271,9 @@ int main() {
         }
         content.modules.emplace_back(module_t{
             exec, text, {}, dir, nullptr
+        });
+        content.modules.emplace_back(module_t{
+            {}, separator, {}, dir, nullptr
         });
     }
     connection_t connection;

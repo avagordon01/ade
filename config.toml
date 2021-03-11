@@ -1,14 +1,9 @@
+separator = "   "
 [[modules]]
 text = "browser"
 gravity = "left"
 [[modules]]
-text = "   "
-gravity = "left"
-[[modules]]
 text = "terminal"
-gravity = "left"
-[[modules]]
-text = "   "
 gravity = "left"
 [[modules]]
 text = "shutdown"
@@ -17,25 +12,13 @@ gravity = "left"
 exec = "date +%H:%M"
 gravity = "right"
 [[modules]]
-text = "   "
-gravity = "right"
-[[modules]]
 exec = "./module-scripts/battery.sh"
-gravity = "right"
-[[modules]]
-text = "   "
 gravity = "right"
 [[modules]]
 exec = "./module-scripts/volume.sh"
 gravity = "right"
 [[modules]]
-text = "   "
-gravity = "right"
-[[modules]]
 exec = "./module-scripts/brightness.sh"
-gravity = "right"
-[[modules]]
-text = "   "
 gravity = "right"
 [[modules]]
 exec = "./module-scripts/network.sh"
