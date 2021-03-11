@@ -33,9 +33,9 @@ exec = "./module-scripts/battery.sh"
 [[modules]]
 gravity = "right"
 exec = "./module-scripts/volume.sh"
-left_click = "pamixer --toggle-mute"
-wheel_up = "pamixer --increase 1"
-wheel_down = "pamixer --decrease 1"
+left_click = "./module-scripts/volume.sh mute"
+wheel_up = "./module-scripts/volume.sh up"
+wheel_down = "./module-scripts/volume.sh down"
 [[modules]]
 gravity = "right"
 exec = "./module-scripts/brightness.sh"
