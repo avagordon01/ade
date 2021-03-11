@@ -229,6 +229,9 @@ struct bar_t {
                                     default:
                                         break;
                                 }
+                                if (!section.exec.empty()) {
+                                    section.content = exec(section.exec);
+                                }
                                 break;
                             }
                         }
