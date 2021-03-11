@@ -3,45 +3,44 @@ font_size = 12.0
 
 separator = "   "
 [[modules]]
-text = "browser"
 gravity = "left"
+text = "browser"
 #TODO background
 left_click = "firefox"
 [[modules]]
-text = "terminal"
 gravity = "left"
+text = "terminal"
 #TODO background
 left_click = "alacritty"
 [[modules]]
-text = "poweroff"
 gravity = "left"
+text = "poweroff"
 left_click = "systemctl poweroff"
 [[modules]]
-text = "reboot"
 gravity = "left"
+text = "reboot"
 left_click = "systemctl reboot"
 [[modules]]
-text = "suspend"
 gravity = "left"
+text = "suspend"
 left_click = "systemctl suspend"
 [[modules]]
+gravity = "right"
 exec = "date +%H:%M"
-gravity = "right"
 [[modules]]
+gravity = "right"
 exec = "./module-scripts/battery.sh"
-gravity = "right"
 [[modules]]
-exec = "./module-scripts/volume.sh"
 gravity = "right"
+exec = "./module-scripts/volume.sh"
 left_click = "pamixer --toggle-mute"
 wheel_up = "pamixer --increase 1"
 wheel_down = "pamixer --decrease 1"
 [[modules]]
+gravity = "right"
 exec = "./module-scripts/brightness.sh"
-gravity = "right"
-#TODO
-wheel_up = "brightness up"
-wheel_down = "brightness down"
+wheel_up = "./module-scripts/brightness.sh up"
+wheel_down = "./module-scripts/brightness.sh down"
 [[modules]]
-exec = "./module-scripts/network.sh"
 gravity = "right"
+exec = "./module-scripts/network.sh"
