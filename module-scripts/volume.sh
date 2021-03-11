@@ -1,3 +1,8 @@
 set -euo pipefail
 
-echo "volume $(pamixer --get-volume)%"
+if $(pamixer --get-mute); then
+    str="muted "
+else
+    str="volume"
+fi
+echo "${str} $(pamixer --get-volume)%"
