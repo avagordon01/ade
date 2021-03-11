@@ -109,6 +109,8 @@ struct bar_t {
     window_t window;
     surface_t surface;
     content_t &content;
+    std::string font;
+    float font_size;
     bar_t(connection_t& _connection, content_t& _content):
         connection(_connection),
         window(connection),
@@ -154,8 +156,7 @@ struct bar_t {
     void redraw() {
         cairo_set_source_rgb(surface.cr, 0.125, 0.125, 0.125);
         cairo_paint(surface.cr);
-        cairo_select_font_face(surface.cr, "Misc Tamsyn", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-        float font_size = 12.0;
+        cairo_select_font_face(surface.cr, font.c_str(), CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
         cairo_set_font_size(surface.cr, font_size);
         cairo_set_source_rgb(surface.cr, 0.875, 0.875, 0.875);
 
@@ -285,6 +286,8 @@ int main() {
     }
     connection_t connection;
     bar_t bar(connection, content);
+    bar.font = toml::find<std::string>(data, "font");
+    bar.font_size = toml::find<float>(data, "font_size");
     std::thread content_update_thread(content_update, std::ref(content));
 
     bar.redraw();
