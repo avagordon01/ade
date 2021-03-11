@@ -6,6 +6,8 @@
 #include <xcb/xcb_atom.h>
 #include "atoms.hh"
 
+#include <toml.hpp>
+
 #include <cstdio>
 #include <cstdint>
 #include <cstdlib>
@@ -223,9 +225,6 @@ void content_update(content_t& content) {
                 module.content = exec(module.exec);
             }
         }
-        content.modules[0].content = "menu";
-        content.modules[2].content = "browser terminal";
-        content.modules[4].content = "shutdown";
         content.lock.unlock();
         std::this_thread::sleep_for(250ms);
     }
@@ -255,24 +254,24 @@ int main() {
         }
         return true;
     };
-    std::string sep = "   ";
-    aabb_t::direction dir = aabb_t::direction::left;
-    content.modules.resize(14);
-    content.modules[0] = {{}, "menu", {}, dir, event};
-    content.modules[1] = {{}, sep, {}, dir, nullptr};
-    content.modules[2] = {{}, "browser terminal", {}, dir, event};
-    content.modules[3] = {{}, sep, {}, dir, nullptr};
-    content.modules[4] = {{}, "shutdown", {}, dir, event};
-    dir = aabb_t::direction::right;
-    content.modules[5] = {"date +%H:%M:%S", {}, {}, dir, nullptr};
-    content.modules[6] = {{}, sep, {}, dir, nullptr};
-    content.modules[7] = {"./module-scripts/battery.sh", {}, {}, dir, event};
-    content.modules[8] = {{}, sep, {}, dir, nullptr};
-    content.modules[9] = {"./module-scripts/volume.sh", {}, {}, dir, event};
-    content.modules[10] = {{}, sep, {}, dir, nullptr};
-    content.modules[11] = {"./module-scripts/brightness.sh", {}, {}, dir, event};
-    content.modules[12] = {{}, sep, {}, dir, nullptr};
-    content.modules[13] = {"./module-scripts/network.sh", {}, {}, dir, event};
+    const auto data = toml::parse("config.toml");
+    const toml::array& modules_config = toml::find(data, "modules").as_array();
+    for (const auto& module_config: modules_config) {
+        const auto text = toml::find_or<std::string>(module_config, "text", "");
+        const auto gravity = toml::find_or<std::string>(module_config, "gravity", "left");
+        const auto exec = toml::find_or<std::string>(module_config, "exec", "");
+        aabb_t::direction dir;
+        if (gravity == "left") {
+            dir = aabb_t::direction::left;
+        } else if (gravity == "right") {
+            dir = aabb_t::direction::right;
+        } else {
+            abort();
+        }
+        content.modules.emplace_back(module_t{
+            exec, text, {}, dir, nullptr
+        });
+    }
     connection_t connection;
     bar_t bar(connection, content);
     std::thread content_update_thread(content_update, std::ref(content));

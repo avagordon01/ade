@@ -24,6 +24,11 @@ deps = [
   dependency('xcb-icccm'),
   dependency('xcb-ewmh'),
   dependency('xcb-atom'),
+  declare_dependency(
+    include_directories: [
+      'vendor/toml11',
+    ]
+  )
 ]
 
 executable('bar', 'src/bar.cc', dependencies: deps, install: true)
