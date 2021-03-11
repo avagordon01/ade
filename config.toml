@@ -2,12 +2,25 @@ separator = "   "
 [[modules]]
 text = "browser"
 gravity = "left"
+#TODO background
+left_click = "firefox"
 [[modules]]
 text = "terminal"
 gravity = "left"
+#TODO background
+left_click = "alacritty"
 [[modules]]
-text = "shutdown"
+text = "poweroff"
 gravity = "left"
+left_click = "systemctl poweroff"
+[[modules]]
+text = "reboot"
+gravity = "left"
+left_click = "systemctl reboot"
+[[modules]]
+text = "suspend"
+gravity = "left"
+left_click = "systemctl suspend"
 [[modules]]
 exec = "date +%H:%M"
 gravity = "right"
@@ -17,9 +30,16 @@ gravity = "right"
 [[modules]]
 exec = "./module-scripts/volume.sh"
 gravity = "right"
+#TODO
+left_click = "mute"
+wheel_up = "volume up"
+wheel_down = "volume down"
 [[modules]]
 exec = "./module-scripts/brightness.sh"
 gravity = "right"
+#TODO
+wheel_up = "brightness up"
+wheel_down = "brightness down"
 [[modules]]
 exec = "./module-scripts/network.sh"
 gravity = "right"
