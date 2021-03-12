@@ -24,6 +24,9 @@
 
 using namespace std::literals::chrono_literals;
 
+int padding = 0;
+int bar_height;
+
 struct connection_t {
     xcb_connection_t *connection;
     connection_t() {
@@ -36,6 +39,7 @@ struct connection_t {
 };
 
 struct window_t {
+    aabb_t screen_aabb;
     aabb_t aabb;
     xcb_drawable_t window;
     xcb_visualtype_t *visual_type;
@@ -44,7 +48,8 @@ struct window_t {
     window_t(connection_t& connection) {
         xcb_screen_iterator_t iter = xcb_setup_roots_iterator(xcb_get_setup(connection.connection));
         screen = iter.data;
-        aabb = {0, 0, screen->width_in_pixels, 16};
+        screen_aabb = {0, 0, screen->width_in_pixels, screen->height_in_pixels};
+        aabb = screen_aabb.chop(aabb_t::direction::top, bar_height);
         window = xcb_generate_id(connection.connection);
         xcb_create_window(
             connection.connection, XCB_COPY_FROM_PARENT,
@@ -111,16 +116,12 @@ struct bar_t {
     content_t &content;
     std::string font;
     float font_size;
-    int padding = 0;
-    int bar_height;
     bar_t(connection_t& _connection, content_t& _content):
         connection(_connection),
         window(connection),
         surface(connection, window),
         content(_content)
     {
-        setup_size();
-
         uint32_t events =
             XCB_EVENT_MASK_EXPOSURE |
             XCB_EVENT_MASK_BUTTON_PRESS;
@@ -165,13 +166,6 @@ struct bar_t {
         xcb_map_window(connection.connection, window.window);
     }
 
-    void setup_size() {
-        cairo_font_extents_t font_extents;
-        cairo_font_extents(surface.cr, &font_extents);
-
-        bar_height = 2 * padding + font_extents.ascent + font_extents.descent;
-    }
-
     void redraw() {
         cairo_set_source_rgb(surface.cr, 0.125, 0.125, 0.125);
         cairo_paint(surface.cr);
@@ -182,18 +176,15 @@ struct bar_t {
         cairo_font_extents_t font_extents;
         cairo_font_extents(surface.cr, &font_extents);
 
-        aabb_t screen {
-            0, 0, window.screen->width_in_pixels, window.screen->height_in_pixels
-        };
-        aabb_t bar = screen.chop(aabb_t::direction::top, bar_height);
+        aabb_t screen = window.screen_aabb;
+        aabb_t bar = window.aabb;
         int notif_width = 200;
         aabb_t notifs = screen.chop(aabb_t::direction::right, notif_width);
         (void)notifs;
         bar.chop(aabb_t::direction::all, padding);
 
-        cairo_text_extents_t text_extents;
-
         for (auto& section: content.modules) {
+            cairo_text_extents_t text_extents;
             cairo_text_extents(surface.cr, section.content.c_str(), &text_extents);
             section.aabb = bar.chop(section.gravity, text_extents.x_advance);
             cairo_move_to(surface.cr, section.aabb.x0, section.aabb.y0 + font_extents.ascent);
@@ -276,6 +267,16 @@ void content_update(content_t& content) {
 }
 
 int main() {
+    {
+        cairo_surface_t* tmp_surface = cairo_image_surface_create(cairo_format_t{}, 0, 0);
+        cairo_t* tmp = cairo_create(tmp_surface);
+        cairo_font_extents_t font_extents;
+        cairo_font_extents(tmp, &font_extents);
+        cairo_destroy(tmp);
+        cairo_surface_destroy(tmp_surface);
+        bar_height = 2 * padding + font_extents.ascent + font_extents.descent;
+    }
+
     content_t content;
     const auto data = toml::parse("config.toml");
     const toml::array& modules_config = toml::find(data, "modules").as_array();
