@@ -7,13 +7,11 @@ separator = "   "
 [[modules]]
 gravity = "left"
 text = "browser"
-#TODO background
-left_click = "firefox"
+left_click = "firefox &"
 [[modules]]
 gravity = "left"
 text = "terminal"
-#TODO background
-left_click = "alacritty"
+left_click = "alacritty &"
 [[modules]]
 gravity = "left"
 text = "poweroff"

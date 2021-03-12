@@ -94,6 +94,9 @@ struct content_t {
     std::vector<module_t> modules;
 };
 
+void exec_nocapture(std::string cmd) {
+    system(cmd.c_str());
+}
 std::string exec(std::string cmd) {
     FILE* pipe = popen(cmd.c_str(), "r");
     if (!pipe) {
@@ -213,27 +216,27 @@ struct bar_t {
                                 switch (event) {
                                     case module_t::event_t::left_click:
                                         if (!section.left_click.empty()) {
-                                            exec(section.left_click);
+                                            exec_nocapture(section.left_click);
                                         }
                                         break;
                                     case module_t::event_t::middle_click:
                                         if (!section.middle_click.empty()) {
-                                            exec(section.middle_click);
+                                            exec_nocapture(section.middle_click);
                                         }
                                         break;
                                     case module_t::event_t::right_click:
                                         if (!section.right_click.empty()) {
-                                            exec(section.right_click);
+                                            exec_nocapture(section.right_click);
                                         }
                                         break;
                                     case module_t::event_t::wheel_up:
                                         if (!section.wheel_up.empty()) {
-                                            exec(section.wheel_up);
+                                            exec_nocapture(section.wheel_up);
                                         }
                                         break;
                                     case module_t::event_t::wheel_down:
                                         if (!section.wheel_down.empty()) {
-                                            exec(section.wheel_down);
+                                            exec_nocapture(section.wheel_down);
                                         }
                                         break;
                                     default:
