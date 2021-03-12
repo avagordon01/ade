@@ -100,7 +100,8 @@ void exec_nocapture(std::string cmd) {
 std::string exec(std::string cmd) {
     FILE* pipe = popen(cmd.c_str(), "r");
     if (!pipe) {
-        throw std::runtime_error("popen() failed!");
+        std::cout << "popen() failed!" << std::endl;
+        exit(1);
     }
     std::string result;
     std::array<char, 128> buffer;
@@ -108,7 +109,10 @@ std::string exec(std::string cmd) {
         result += buffer.data();
     }
     pclose(pipe);
-    result.erase(std::remove(result.begin(), result.end(), '\n'), result.end());
+    std::replace(result.begin(), result.end(), '\n', ' ');
+    if (result.back() == ' ') {
+        result.pop_back();
+    }
     return result;
 };
 
