@@ -111,12 +111,16 @@ struct bar_t {
     content_t &content;
     std::string font;
     float font_size;
+    int padding = 0;
+    int bar_height;
     bar_t(connection_t& _connection, content_t& _content):
         connection(_connection),
         window(connection),
         surface(connection, window),
         content(_content)
     {
+        setup_size();
+
         uint32_t events =
             XCB_EVENT_MASK_EXPOSURE |
             XCB_EVENT_MASK_BUTTON_PRESS;
@@ -147,10 +151,25 @@ struct bar_t {
         xcb_ewmh_set_wm_window_type(&ewmh, w, types.size(), types.data());
         std::vector<xcb_atom_t> states = {_NET_WM_STATE_STICKY, _NET_WM_STATE_ABOVE, _NET_WM_STATE_SKIP_TASKBAR};
         xcb_ewmh_set_wm_state(&ewmh, w, states.size(), states.data());
+
+        xcb_ewmh_wm_strut_partial_t strut {0};
+        strut.top = bar_height;
+        strut.top_start_x = window.aabb.x0;
+        strut.top_end_x = window.aabb.x1;
+        xcb_ewmh_set_wm_strut_partial(&ewmh, w, strut);
+
         xcb_ewmh_set_wm_desktop(&ewmh, w, 0xFFFFFFFF);
         xcb_ewmh_set_wm_pid(&ewmh, w, getpid());
+
         xcb_flush(connection.connection);
         xcb_map_window(connection.connection, window.window);
+    }
+
+    void setup_size() {
+        cairo_font_extents_t font_extents;
+        cairo_font_extents(surface.cr, &font_extents);
+
+        bar_height = 2 * padding + font_extents.ascent + font_extents.descent;
     }
 
     void redraw() {
@@ -166,8 +185,6 @@ struct bar_t {
         aabb_t screen {
             0, 0, window.screen->width_in_pixels, window.screen->height_in_pixels
         };
-        int padding = 0;
-        int bar_height = 2 * padding + font_extents.ascent + font_extents.descent;
         aabb_t bar = screen.chop(aabb_t::direction::top, bar_height);
         int notif_width = 200;
         aabb_t notifs = screen.chop(aabb_t::direction::right, notif_width);
