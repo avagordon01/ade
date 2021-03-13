@@ -24,9 +24,6 @@
 
 using namespace std::literals::chrono_literals;
 
-int padding = 0;
-int bar_height;
-
 struct connection_t {
     xcb_connection_t *connection;
     connection_t() {
@@ -38,29 +35,14 @@ struct connection_t {
     }
 };
 
-struct window_t {
-    aabb_t screen_aabb;
+struct screen_t {
     aabb_t aabb;
-    xcb_drawable_t window;
-    xcb_visualtype_t *visual_type;
     xcb_screen_t *screen;
-
-    window_t(connection_t& connection) {
+    xcb_visualtype_t *visual_type;
+    screen_t(connection_t& connection) {
         xcb_screen_iterator_t iter = xcb_setup_roots_iterator(xcb_get_setup(connection.connection));
         screen = iter.data;
-        screen_aabb = {0, 0, screen->width_in_pixels, screen->height_in_pixels};
-        aabb = screen_aabb.chop(aabb_t::direction::top, bar_height);
-        window = xcb_generate_id(connection.connection);
-        xcb_create_window(
-            connection.connection, XCB_COPY_FROM_PARENT,
-            window, screen->root,
-            aabb.xpos(), aabb.ypos(),
-            aabb.width(), aabb.height(),
-            0,
-            XCB_WINDOW_CLASS_INPUT_OUTPUT,
-            screen->root_visual,
-            0, NULL
-        );
+        aabb = {0, 0, screen->width_in_pixels, screen->height_in_pixels};
 
         xcb_depth_iterator_t depth_iter = xcb_screen_allowed_depths_iterator(screen);
         for (; depth_iter.rem; xcb_depth_next(&depth_iter)) {
@@ -75,12 +57,35 @@ struct window_t {
     }
 };
 
+struct window_t {
+    connection_t connection;
+    xcb_drawable_t window;
+    aabb_t aabb;
+
+    window_t(connection_t& connection_, screen_t& screen, aabb_t aabb_): connection(connection_), aabb(aabb_) {
+        window = xcb_generate_id(connection.connection);
+        xcb_create_window(
+            connection.connection, XCB_COPY_FROM_PARENT,
+            window, screen.screen->root,
+            aabb.xpos(), aabb.ypos(),
+            aabb.width(), aabb.height(),
+            0,
+            XCB_WINDOW_CLASS_INPUT_OUTPUT,
+            screen.screen->root_visual,
+            0, NULL
+        );
+    }
+    ~window_t() {
+        xcb_destroy_window(connection.connection, window);
+    }
+};
+
 struct surface_t {
     cairo_surface_t *surface;
     cairo_t *cr;
 
-    surface_t(connection_t& connection, window_t& window) {
-        surface = cairo_xcb_surface_create(connection.connection, window.window, window.visual_type, window.aabb.width(), window.aabb.height());
+    surface_t(connection_t& connection, screen_t& screen, window_t& window) {
+        surface = cairo_xcb_surface_create(connection.connection, window.window, screen.visual_type, window.aabb.width(), window.aabb.height());
         cr = cairo_create(surface);
     }
     ~surface_t() {
@@ -118,6 +123,7 @@ std::string exec(std::string cmd) {
 
 struct bar_t {
     connection_t& connection;
+    screen_t screen;
     window_t window;
     surface_t surface;
     content_t &content;
@@ -125,10 +131,11 @@ struct bar_t {
     float font_size;
     std::array<float, 3> foreground;
     std::array<float, 3> background;
-    bar_t(connection_t& _connection, content_t& _content):
+    bar_t(connection_t& _connection, screen_t& _screen, content_t& _content, aabb_t aabb):
         connection(_connection),
-        window(connection),
-        surface(connection, window),
+        screen(_screen),
+        window(connection, screen, aabb),
+        surface(connection, screen, window),
         content(_content)
     {
         uint32_t events =
@@ -146,7 +153,7 @@ struct bar_t {
         std::vector<xcb_atom_t> flags = {WM_DELETE_WINDOW, WM_TAKE_FOCUS};
         xcb_icccm_set_wm_protocols(c, w, WM_PROTOCOLS, flags.size(), flags.data());
 
-        const unsigned int visual {window.screen->root_visual};
+        const unsigned int visual {screen.screen->root_visual};
         xcb_change_property(c, XCB_PROP_MODE_REPLACE, w, _NET_SYSTEM_TRAY_VISUAL, XCB_ATOM_VISUALID, 32, 1, &visual);
         #define _NET_SYSTEM_TRAY_ORIENTATION_HORZ 0
         #define _NET_SYSTEM_TRAY_ORIENTATION_VERT 1
@@ -163,7 +170,7 @@ struct bar_t {
         xcb_ewmh_set_wm_state(&ewmh, w, states.size(), states.data());
 
         xcb_ewmh_wm_strut_partial_t strut {0};
-        strut.top = bar_height;
+        strut.top = window.aabb.y1;
         strut.top_start_x = window.aabb.x0;
         strut.top_end_x = window.aabb.x1;
         xcb_ewmh_set_wm_strut_partial(&ewmh, w, strut);
@@ -178,6 +185,7 @@ struct bar_t {
     void redraw() {
         cairo_set_source_rgb(surface.cr, background[0], background[1], background[2]);
         cairo_paint(surface.cr);
+
         cairo_select_font_face(surface.cr, font.c_str(), CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
         cairo_set_font_size(surface.cr, font_size);
         cairo_set_source_rgb(surface.cr, foreground[0], foreground[1], foreground[2]);
@@ -185,13 +193,7 @@ struct bar_t {
         cairo_font_extents_t font_extents;
         cairo_font_extents(surface.cr, &font_extents);
 
-        aabb_t screen = window.screen_aabb;
         aabb_t bar = window.aabb;
-        int notif_width = 200;
-        aabb_t notifs = screen.chop(aabb_t::direction::right, notif_width);
-        (void)notifs;
-        bar.chop(aabb_t::direction::all, padding);
-
         for (auto& section: content.modules) {
             cairo_text_extents_t text_extents;
             cairo_text_extents(surface.cr, section.content.c_str(), &text_extents);
@@ -216,29 +218,28 @@ struct bar_t {
 
                         for (auto& section: content.modules) {
                             if (section.aabb.contains(mouse_aabb)) {
-                                module_t::event_t event {button_press.detail};
-                                switch (event) {
-                                    case module_t::event_t::left_click:
+                                switch (button_press.detail) {
+                                    case 1:
                                         if (!section.left_click.empty()) {
                                             exec_nocapture(section.left_click);
                                         }
                                         break;
-                                    case module_t::event_t::middle_click:
+                                    case 2:
                                         if (!section.middle_click.empty()) {
                                             exec_nocapture(section.middle_click);
                                         }
                                         break;
-                                    case module_t::event_t::right_click:
+                                    case 3:
                                         if (!section.right_click.empty()) {
                                             exec_nocapture(section.right_click);
                                         }
                                         break;
-                                    case module_t::event_t::wheel_up:
+                                    case 4:
                                         if (!section.wheel_up.empty()) {
                                             exec_nocapture(section.wheel_up);
                                         }
                                         break;
-                                    case module_t::event_t::wheel_down:
+                                    case 5:
                                         if (!section.wheel_down.empty()) {
                                             exec_nocapture(section.wheel_down);
                                         }
@@ -275,30 +276,25 @@ void content_update(content_t& content) {
     }
 }
 
-int main() {
-    {
-        cairo_surface_t* tmp_surface = cairo_image_surface_create(cairo_format_t{}, 0, 0);
-        cairo_t* tmp = cairo_create(tmp_surface);
-        cairo_font_extents_t font_extents;
-        cairo_font_extents(tmp, &font_extents);
-        cairo_destroy(tmp);
-        cairo_surface_destroy(tmp_surface);
-        bar_height = 2 * padding + font_extents.ascent + font_extents.descent;
-    }
+cairo_font_extents_t calculate_font_extents(std::string font, float font_size) {
+    cairo_surface_t* tmp_surface = cairo_image_surface_create(cairo_format_t{}, 0, 0);
+    cairo_t* tmp = cairo_create(tmp_surface);
+    cairo_select_font_face(tmp, font.c_str(), CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(tmp, font_size);
+    cairo_font_extents_t font_extents;
+    cairo_font_extents(tmp, &font_extents);
+    cairo_destroy(tmp);
+    cairo_surface_destroy(tmp_surface);
+    return font_extents;
+}
 
+int main() {
     content_t content;
     const auto data = toml::parse("config.toml");
     const toml::array& modules_config = toml::find(data, "modules").as_array();
     const auto separator = toml::find_or<std::string>(data, "separator", "");
     for (const auto& module_config: modules_config) {
-        const auto text = toml::find_or<std::string>(module_config, "text", "");
         const auto gravity = toml::find_or<std::string>(module_config, "gravity", "left");
-        const auto exec = toml::find_or<std::string>(module_config, "exec", "");
-        const auto left_click = toml::find_or<std::string>(module_config, "left_click", "");
-        const auto middle_click = toml::find_or<std::string>(module_config, "middle_click", "");
-        const auto right_click = toml::find_or<std::string>(module_config, "right_click", "");
-        const auto wheel_up = toml::find_or<std::string>(module_config, "wheel_up", "");
-        const auto wheel_down = toml::find_or<std::string>(module_config, "wheel_down", "");
         aabb_t::direction dir;
         if (gravity == "left") {
             dir = aabb_t::direction::left;
@@ -308,19 +304,35 @@ int main() {
             abort();
         }
         content.modules.emplace_back(module_t{
-            exec, text, {}, dir, left_click, middle_click, right_click, wheel_up, wheel_down,
+            toml::find_or<std::string>(module_config, "exec", ""),
+            toml::find_or<std::string>(module_config, "text", ""),
+            {},
+            dir,
+            toml::find_or<std::string>(module_config, "left_click", ""),
+            toml::find_or<std::string>(module_config, "middle_click", ""),
+            toml::find_or<std::string>(module_config, "right_click", ""),
+            toml::find_or<std::string>(module_config, "wheel_up", ""),
+            toml::find_or<std::string>(module_config, "wheel_down", ""),
         });
         content.modules.emplace_back(module_t{
             {}, separator, {}, dir, "", "", "", "", ""
         });
     }
     connection_t connection;
-    bar_t bar(connection, content);
+    screen_t screen{connection};
+    float font_size = toml::find<float>(data, "font_size");
+    int bar_height = font_size;
+    aabb_t bar_aabb = screen.aabb.chop(aabb_t::direction::top, bar_height);
+    bar_t bar{connection, screen, content, bar_aabb};
     bar.font = toml::find<std::string>(data, "font");
-    bar.font_size = toml::find<float>(data, "font_size");
+    bar.font_size = font_size;
     bar.foreground = toml::find<std::array<float, 3>>(data, "foreground");
     bar.background = toml::find<std::array<float, 3>>(data, "background");
     std::thread content_update_thread(content_update, std::ref(content));
+
+    int notif_width = 200;
+    aabb_t notifs = screen.aabb.chop(aabb_t::direction::right, notif_width);
+    (void)notifs;
 
     bar.redraw();
     while (true) {
