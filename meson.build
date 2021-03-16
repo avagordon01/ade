@@ -37,4 +37,4 @@ deps = [
   sdbus_cpp.dependency('sdbus-c++'),
 ]
 
-executable('bar', 'src/bar.cc', dependencies: deps, install: true)
+executable('ade', 'src/ade.cc', dependencies: deps, install: true)

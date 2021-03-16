@@ -1,3 +1,5 @@
+#include <cassert>
+
 struct aabb_t {
     int x0, y0, x1, y1;
 
