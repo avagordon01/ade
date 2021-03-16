@@ -17,6 +17,11 @@ add_project_arguments(
   language: 'cpp',
 )
 
+cmake = import('cmake')
+opt_var = cmake.subproject_options()
+opt_var.append_compile_args('cpp', '-Wno-c99-extensions')
+sdbus_cpp = cmake.subproject('sdbus-cpp', options: opt_var)
+
 deps = [
   dependency('cairo'),
   dependency('cairo-xcb'),
@@ -26,9 +31,10 @@ deps = [
   dependency('xcb-atom'),
   declare_dependency(
     include_directories: [
-      'vendor/toml11',
+      'subprojects/toml11',
     ]
-  )
+  ),
+  sdbus_cpp.dependency('sdbus-c++'),
 ]
 
 executable('bar', 'src/bar.cc', dependencies: deps, install: true)
