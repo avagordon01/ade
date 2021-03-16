@@ -1,3 +1,6 @@
 [submodule "vendor/toml11"]
 	path = vendor/toml11
 	url = git@github.com:ToruNiina/toml11.git
+[submodule "vendor/sdbus-cpp"]
+	path = vendor/sdbus-cpp
+	url = git@github.com:Kistler-Group/sdbus-cpp.git
