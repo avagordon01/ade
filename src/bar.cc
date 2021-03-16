@@ -194,6 +194,7 @@ struct bar_t {
         cairo_font_extents(surface.cr, &font_extents);
 
         aabb_t bar = window.aabb;
+        content.lock.lock();
         for (auto& section: content.modules) {
             cairo_text_extents_t text_extents;
             cairo_text_extents(surface.cr, section.content.c_str(), &text_extents);
@@ -201,80 +202,71 @@ struct bar_t {
             cairo_move_to(surface.cr, section.aabb.x0, section.aabb.y0 + font_extents.ascent);
             cairo_show_text(surface.cr, section.content.c_str());
         }
+        content.lock.unlock();
 
         cairo_surface_flush(surface.surface);
         xcb_flush(connection.connection);
     }
     void handle_events() {
-        xcb_generic_event_t *event;
-        while ((event = xcb_poll_for_event(connection.connection))) {
-            switch (event->response_type & ~0x80) {
-                case XCB_EXPOSE:
-                    break;
-                case XCB_EVENT_MASK_BUTTON_PRESS:
-                    {
-                        xcb_button_press_event_t &button_press = *reinterpret_cast<xcb_button_press_event_t*>(event);
-                        aabb_t mouse_aabb {button_press.event_x, button_press.event_y, 0, 0};
+        xcb_generic_event_t *event = xcb_wait_for_event(connection.connection);
+        if (!event) {
+            return;
+        }
+        switch (event->response_type & ~0x80) {
+            case XCB_EXPOSE:
+                break;
+            case XCB_EVENT_MASK_BUTTON_PRESS:
+                {
+                    xcb_button_press_event_t &button_press = *reinterpret_cast<xcb_button_press_event_t*>(event);
+                    aabb_t mouse_aabb {button_press.event_x, button_press.event_y, 0, 0};
 
-                        for (auto& section: content.modules) {
-                            if (section.aabb.contains(mouse_aabb)) {
-                                switch (button_press.detail) {
-                                    case 1:
-                                        if (!section.left_click.empty()) {
-                                            exec_nocapture(section.left_click);
-                                        }
-                                        break;
-                                    case 2:
-                                        if (!section.middle_click.empty()) {
-                                            exec_nocapture(section.middle_click);
-                                        }
-                                        break;
-                                    case 3:
-                                        if (!section.right_click.empty()) {
-                                            exec_nocapture(section.right_click);
-                                        }
-                                        break;
-                                    case 4:
-                                        if (!section.wheel_up.empty()) {
-                                            exec_nocapture(section.wheel_up);
-                                        }
-                                        break;
-                                    case 5:
-                                        if (!section.wheel_down.empty()) {
-                                            exec_nocapture(section.wheel_down);
-                                        }
-                                        break;
-                                    default:
-                                        break;
-                                }
-                                if (!section.exec.empty()) {
-                                    section.content = exec(section.exec);
-                                }
-                                break;
+                    for (auto& section: content.modules) {
+                        if (section.aabb.contains(mouse_aabb)) {
+                            switch (button_press.detail) {
+                                case 1:
+                                    if (!section.left_click.empty()) {
+                                        exec_nocapture(section.left_click);
+                                    }
+                                    break;
+                                case 2:
+                                    if (!section.middle_click.empty()) {
+                                        exec_nocapture(section.middle_click);
+                                    }
+                                    break;
+                                case 3:
+                                    if (!section.right_click.empty()) {
+                                        exec_nocapture(section.right_click);
+                                    }
+                                    break;
+                                case 4:
+                                    if (!section.wheel_up.empty()) {
+                                        exec_nocapture(section.wheel_up);
+                                    }
+                                    break;
+                                case 5:
+                                    if (!section.wheel_down.empty()) {
+                                        exec_nocapture(section.wheel_down);
+                                    }
+                                    break;
+                                default:
+                                    break;
                             }
+                            if (!section.exec.empty()) {
+                                content.lock.lock();
+                                section.content = exec(section.exec);
+                                content.lock.unlock();
+                            }
+                            break;
                         }
                     }
-                    break;
-                default:
-                    break;
-            }
+                }
+                break;
+            default:
+                break;
         }
         free(event);
     }
 };
-
-void content_update(content_t& content) {
-    while (true) {
-        content.lock.lock();
-        for (auto& module: content.modules) {
-            if (!module.exec.empty()) {
-                module.content = exec(module.exec);
-            }
-        }
-        content.lock.unlock();
-        std::this_thread::sleep_for(250ms);
-    }
-}
 
 cairo_font_extents_t calculate_font_extents(std::string font, float font_size) {
     cairo_surface_t* tmp_surface = cairo_image_surface_create(cairo_format_t{}, 0, 0);
@@ -328,18 +320,42 @@ int main() {
     bar.font_size = font_size;
     bar.foreground = toml::find<std::array<float, 3>>(data, "foreground");
     bar.background = toml::find<std::array<float, 3>>(data, "background");
-    std::thread content_update_thread(content_update, std::ref(content));
+
+    std::thread xcb_update_thread(
+        [](bar_t& bar) {
+            bar.redraw();
+            while (true) {
+                bar.handle_events();
+                bar.redraw();
+            }
+        },
+        std::ref(bar)
+    );
+
+    std::thread content_update_thread(
+        [](content_t& content, bar_t& bar) {
+            while (true) {
+                content.lock.lock();
+                for (auto& module: content.modules) {
+                    if (!module.exec.empty()) {
+                        module.content = exec(module.exec);
+                    }
+                }
+                content.lock.unlock();
+                bar.redraw();
+                std::this_thread::sleep_for(1s);
+            }
+        },
+        std::ref(content),
+        std::ref(bar)
+    );
+
+    xcb_update_thread.join();
+    content_update_thread.join();
 
     int notif_width = 200;
     aabb_t notifs = screen.aabb.chop(aabb_t::direction::right, notif_width);
     (void)notifs;
 
-    bar.redraw();
-    while (true) {
-        content.lock.lock();
-        bar.handle_events();
-        bar.redraw();
-        content.lock.unlock();
-        std::this_thread::sleep_for(10ms);
-    }
+    return 0;
 }
