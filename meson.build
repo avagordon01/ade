@@ -20,6 +20,7 @@ add_project_arguments(
 cmake = import('cmake')
 opt_var = cmake.subproject_options()
 opt_var.append_compile_args('cpp', '-Wno-c99-extensions')
+opt_var.set_install(false)
 sdbus_cpp = cmake.subproject('sdbus-cpp', options: opt_var)
 
 deps = [
