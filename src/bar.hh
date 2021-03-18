@@ -94,6 +94,28 @@ struct bar_t {
 
         xcb_flush(connection.connection);
         xcb_map_window(connection.connection, window.window);
+
+        xcb_window_t root_window = 0;
+        {
+            xcb_query_tree_reply_t *reply;
+            if ((reply = xcb_query_tree_reply(c, xcb_query_tree(c, screen.screen->root), nullptr))) {
+                xcb_window_t *children = xcb_query_tree_children(reply);
+                for (int i = 0; i < xcb_query_tree_children_length(reply); i++) {
+                    /*
+                    xcb_icccm_get_wm_class_reply_t icr;
+                    xcb_icccm_get_wm_class_reply(c, xcb_icccm_get_wm_class(c, children[i]), &icr, nullptr);
+                    if (std::string(icr.instance_name) == "root") {
+                    */
+                        root_window = children[i];
+                        break;
+                    //}
+                }
+                free(reply);
+            }
+        }
+        uint16_t mask = XCB_CONFIG_WINDOW_SIBLING | XCB_CONFIG_WINDOW_STACK_MODE;
+        std::vector<uint32_t> values = {root_window, XCB_STACK_MODE_ABOVE};
+        xcb_configure_window(c, w, mask, values.data());
     }
 
     void redraw() {
