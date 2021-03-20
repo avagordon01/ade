@@ -1,5 +1,7 @@
 #include <thread>
 #include <string>
+#include <mutex>
+#include <condition_variable>
 
 #include <toml.hpp>
 
@@ -49,38 +51,50 @@ int main() {
     bar.foreground = toml::find<std::array<float, 3>>(data, "foreground");
     bar.background = toml::find<std::array<float, 3>>(data, "background");
 
-    std::thread xcb_update_thread(
-        [](bar_t& bar) {
-            bar.redraw();
-            while (true) {
-                bar.handle_events();
-                bar.redraw();
-            }
-        },
-        std::ref(bar)
-    );
+    std::mutex content_lock;
+    std::condition_variable render_notify;
 
-    std::thread content_update_thread(
-        [](content_t& content, bar_t& bar) {
-            while (true) {
-                content.lock.lock();
+    std::thread events_thread([&]() {
+        while (true) {
+            module_t* section = bar.handle_events();
+            {
+                std::lock_guard<std::mutex> l(content_lock);
+                if (section) {
+                    section->content = exec(section->exec);
+                }
+            }
+            render_notify.notify_one();
+        }
+    });
+
+    std::thread update_thread([&]() {
+        while (true) {
+            auto t = std::chrono::system_clock::now();
+            {
+                std::lock_guard<std::mutex> l(content_lock);
                 for (auto& module: content.modules) {
                     if (!module.exec.empty()) {
                         module.content = exec(module.exec);
                     }
                 }
-                content.lock.unlock();
-                bar.redraw();
-                using namespace std::literals::chrono_literals;
-                std::this_thread::sleep_for(1s);
             }
-        },
-        std::ref(content),
-        std::ref(bar)
-    );
+            render_notify.notify_one();
+            using namespace std::literals::chrono_literals;
+            std::this_thread::sleep_until(t + 1s);
+        }
+    });
 
-    xcb_update_thread.join();
-    content_update_thread.join();
+    std::thread render_thread([&]() {
+        while (true) {
+            std::unique_lock<std::mutex> l(content_lock);
+            render_notify.wait(l);
+            bar.redraw();
+        }
+    });
+
+    events_thread.join();
+    update_thread.join();
+    render_thread.join();
 
     int notif_width = 200;
     aabb_t notifs = screen.aabb.chop(aabb_t::direction::right, notif_width);

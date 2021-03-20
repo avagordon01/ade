@@ -1,6 +1,5 @@
 #pragma once
 
-#include <mutex>
 #include <algorithm>
 #include <iostream>
 #include <cstdio>
@@ -9,7 +8,6 @@
 #include "render.hh"
 
 struct content_t {
-    std::mutex lock;
     std::vector<module_t> modules;
 };
 
@@ -130,7 +128,6 @@ struct bar_t {
         cairo_font_extents(surface.cr, &font_extents);
 
         aabb_t bar = window.aabb;
-        content.lock.lock();
         for (auto& section: content.modules) {
             cairo_text_extents_t text_extents;
             cairo_text_extents(surface.cr, section.content.c_str(), &text_extents);
@@ -138,15 +135,14 @@ struct bar_t {
             cairo_move_to(surface.cr, section.aabb.x0, section.aabb.y0 + font_extents.ascent);
             cairo_show_text(surface.cr, section.content.c_str());
         }
-        content.lock.unlock();
 
         cairo_surface_flush(surface.surface);
         xcb_flush(connection.connection);
     }
-    void handle_events() {
+    module_t* handle_events() {
         xcb_generic_event_t *event = xcb_wait_for_event(connection.connection);
         if (!event) {
-            return;
+            return nullptr;
         }
         switch (event->response_type & ~0x80) {
             case XCB_EXPOSE:
@@ -188,9 +184,8 @@ struct bar_t {
                                     break;
                             }
                             if (!section.exec.empty()) {
-                                content.lock.lock();
-                                section.content = exec(section.exec);
-                                content.lock.unlock();
+                                free(event);
+                                return &section;
                             }
                             break;
                         }
@@ -201,5 +196,6 @@ struct bar_t {
                 break;
         }
         free(event);
+        return nullptr;
     }
 };
