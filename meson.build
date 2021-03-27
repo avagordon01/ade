@@ -28,6 +28,7 @@ deps = [
   dependency('xcb-icccm'),
   dependency('xcb-ewmh'),
   dependency('xcb-atom'),
+  dependency('threads'),
   declare_dependency(
     include_directories: [
       'subprojects/toml11',
