@@ -1,6 +1,8 @@
 set -euo pipefail
 
-brightness=$(xrandr --verbose | awk '/Brightness/ { print $2 * 100 }' | head -1)
+#TODO this is really slow when there's an external monitor plugged in
+#brightness=$(xrandr --verbose | awk '/Brightness/ { print $2 * 100 }' | head -1)
+brightness=25
 
 case ${1-none} in
     up)
