@@ -5,8 +5,6 @@ project('ade', 'cpp',
     'warning_level=3',
     'werror=true',
     'cpp_std=c++17',
-    'b_sanitize=address,undefined',
-    'b_lundef=false',
   ]
 )
 
