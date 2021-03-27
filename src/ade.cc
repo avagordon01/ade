@@ -57,13 +57,13 @@ int main() {
     std::thread events_thread([&]() {
         while (true) {
             module_t* section = bar.handle_events();
-            {
-                std::lock_guard<std::mutex> l(content_lock);
-                if (section) {
+            if (section) {
+                {
+                    std::lock_guard<std::mutex> l(content_lock);
                     section->content = exec(section->exec);
                 }
+                render_notify.notify_one();
             }
-            render_notify.notify_one();
         }
     });
 

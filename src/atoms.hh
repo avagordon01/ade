@@ -95,7 +95,7 @@ void cache_atoms(xcb_connection_t* connection) {
         xcb_intern_atom_reply_t* reply = xcb_intern_atom_reply(connection, cached_atom.cookie, nullptr);
         if (reply) {
             *cached_atom.atom = reply->atom;
+            free(reply);
         }
-        free(reply);
     }
 }

@@ -25,7 +25,10 @@ std::string exec(std::string cmd) {
     while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
         result += buffer.data();
     }
-    pclose(pipe);
+    if (pclose(pipe) == -1) {
+        std::cout << "pclose() failed!" << std::endl;
+        exit(1);
+    }
     std::replace(result.begin(), result.end(), '\n', ' ');
     if (result.back() == ' ') {
         result.pop_back();
@@ -141,6 +144,7 @@ struct bar_t {
     }
     module_t* handle_events() {
         xcb_generic_event_t *event = xcb_wait_for_event(connection.connection);
+        module_t* m = nullptr;
         if (!event) {
             return nullptr;
         }
@@ -184,8 +188,7 @@ struct bar_t {
                                     break;
                             }
                             if (!section.exec.empty()) {
-                                free(event);
-                                return &section;
+                                m = &section;
                             }
                             break;
                         }
@@ -196,6 +199,6 @@ struct bar_t {
                 break;
         }
         free(event);
-        return nullptr;
+        return m;
     }
 };
