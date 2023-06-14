@@ -23,10 +23,14 @@ struct screen_t {
     aabb_t aabb;
     xcb_screen_t *screen;
     xcb_visualtype_t *visual_type;
+    double dpi_mult_x, dpi_mult_y;
     screen_t(connection_t& connection) {
         xcb_screen_iterator_t iter = xcb_setup_roots_iterator(xcb_get_setup(connection.connection));
         screen = iter.data;
         aabb = {0, 0, screen->width_in_pixels, screen->height_in_pixels};
+
+        dpi_mult_x = (static_cast<double>(screen->width_in_pixels) * 25.4 / static_cast<double>(screen->width_in_millimeters)) / 96.0;
+        dpi_mult_y = (static_cast<double>(screen->height_in_pixels) * 25.4 / static_cast<double>(screen->height_in_millimeters)) / 96.0;
 
         xcb_depth_iterator_t depth_iter = xcb_screen_allowed_depths_iterator(screen);
         for (; depth_iter.rem; xcb_depth_next(&depth_iter)) {

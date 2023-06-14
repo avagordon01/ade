@@ -2,6 +2,7 @@
 #include <string>
 #include <mutex>
 #include <condition_variable>
+#include <cmath>
 
 #include <toml.hpp>
 
@@ -42,11 +43,14 @@ int main() {
     }
     connection_t connection;
     screen_t screen{connection};
-    float font_size = toml::find<float>(data, "font_size");
-    int bar_height = font_size;
+
+    std::string font = toml::find<std::string>(data, "font");
+    double font_size = toml::find<float>(data, "font_size") * screen.dpi_mult_y * 96.0 / 72.0;
+    int bar_height = std::ceil(calculate_font_extents(font, font_size).height);
     aabb_t bar_aabb = screen.aabb.chop(aabb_t::direction::top, bar_height);
+
     bar_t bar{connection, screen, content, bar_aabb};
-    bar.font = toml::find<std::string>(data, "font");
+    bar.font = font;
     bar.font_size = font_size;
     bar.foreground = toml::find<std::array<float, 3>>(data, "foreground");
     bar.background = toml::find<std::array<float, 3>>(data, "background");

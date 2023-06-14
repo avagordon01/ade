@@ -1,5 +1,5 @@
-font = "Misc Tamsyn"
-font_size = 12.0
+font = "Hack"
+font_size = 8.0
 background = [0.125, 0.125, 0.125]
 foreground = [0.875, 0.875, 0.875]
 separator = "  "
