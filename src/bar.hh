@@ -5,6 +5,8 @@
 #include <cstdio>
 #include <unistd.h>
 
+#include "cairomm/fontface.h"
+#include "cairomm/types.h"
 #include "render.hh"
 
 struct content_t {
@@ -38,7 +40,7 @@ std::string exec(std::string cmd) {
 
 struct bar_t {
     connection_t& connection;
-    screen_t screen;
+    screen_t& screen;
     window_t window;
     surface_t surface;
     content_t &content;
@@ -120,26 +122,26 @@ struct bar_t {
     }
 
     void redraw() {
-        cairo_set_source_rgb(surface.cr, background[0], background[1], background[2]);
-        cairo_paint(surface.cr);
+        surface.c->set_source_rgb(background[0], background[1], background[2]);
+        surface.c->paint();
 
-        cairo_select_font_face(surface.cr, font.c_str(), CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-        cairo_set_font_size(surface.cr, font_size);
-        cairo_set_source_rgb(surface.cr, foreground[0], foreground[1], foreground[2]);
+        surface.c->select_font_face(font, Cairo::ToyFontFace::Slant::NORMAL, Cairo::ToyFontFace::Weight::NORMAL);
+        surface.c->set_font_size(font_size);
+        surface.c->set_source_rgb(foreground[0], foreground[1], foreground[2]);
 
-        cairo_font_extents_t font_extents;
-        cairo_font_extents(surface.cr, &font_extents);
+        Cairo::FontExtents font_extents;
+        surface.c->get_font_extents(font_extents);
 
         aabb_t bar = window.aabb;
         for (auto& section: content.modules) {
-            cairo_text_extents_t text_extents;
-            cairo_text_extents(surface.cr, section.content.c_str(), &text_extents);
+            Cairo::TextExtents text_extents;
+            surface.c->get_text_extents(section.content.c_str(), text_extents);
             section.aabb = bar.chop(section.gravity, text_extents.x_advance);
-            cairo_move_to(surface.cr, section.aabb.x0, section.aabb.y0 + font_extents.ascent);
-            cairo_show_text(surface.cr, section.content.c_str());
+            surface.c->move_to(section.aabb.x0, section.aabb.y0 + font_extents.ascent);
+            surface.c->show_text(section.content.c_str());
         }
 
-        cairo_surface_flush(surface.surface);
+        surface.s.flush();
         xcb_flush(connection.connection);
     }
     module_t* handle_events() {

@@ -22,6 +22,10 @@ opt_var.set_install(false)
 sdbus_cpp = cmake.subproject('sdbus-cpp', options: opt_var)
 
 deps = [
+  dependency('tomlplusplus'),
+  dependency('pangomm-2.48'),
+  dependency('cairomm-1.16'),
+  dependency('fmt'),
   dependency('cairo'),
   dependency('cairo-xcb'),
   dependency('xcb'),
@@ -38,3 +42,5 @@ deps = [
 ]
 
 executable('ade', 'src/ade.cc', dependencies: deps, install: true)
+
+executable('t', 'test.cc', dependencies: deps, install: true)

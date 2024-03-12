@@ -10,6 +10,7 @@
 #include "module.hh"
 #include "render.hh"
 #include "bar.hh"
+#include "notifications.hh"
 
 int main() {
     content_t content;
@@ -45,8 +46,9 @@ int main() {
     screen_t screen{connection};
 
     std::string font = toml::find<std::string>(data, "font");
-    double font_size = toml::find<float>(data, "font_size") * screen.dpi_mult_y * 96.0 / 72.0;
-    int bar_height = std::ceil(calculate_font_extents(font, font_size).height);
+    double font_size = toml::find<float>(data, "font_size") * screen.dpi_y / 72.0;
+    auto font_extents = calculate_font_extents(font, font_size);
+    int bar_height = std::ceil(font_extents.height);
     aabb_t bar_aabb = screen.aabb.chop(aabb_t::direction::top, bar_height);
 
     bar_t bar{connection, screen, content, bar_aabb};
@@ -54,6 +56,12 @@ int main() {
     bar.font_size = font_size;
     bar.foreground = toml::find<std::array<float, 3>>(data, "foreground");
     bar.background = toml::find<std::array<float, 3>>(data, "background");
+
+    int notif_width = 200;
+    aabb_t notifications_aabb = screen.aabb.chop(aabb_t::direction::right, notif_width);
+    size_t notification_lines = 4;
+    size_t notification_columns = 40;
+    notifications_t notifications{connection, screen, notifications_aabb, notification_lines, notification_columns};
 
     std::mutex content_lock;
     std::condition_variable render_notify;
@@ -92,17 +100,14 @@ int main() {
         while (true) {
             std::unique_lock<std::mutex> l(content_lock);
             render_notify.wait(l);
-            bar.redraw();
+            // bar.redraw();
+            notifications.redraw();
         }
     });
 
     events_thread.join();
     update_thread.join();
     render_thread.join();
-
-    int notif_width = 200;
-    aabb_t notifs = screen.aabb.chop(aabb_t::direction::right, notif_width);
-    (void)notifs;
 
     return 0;
 }
